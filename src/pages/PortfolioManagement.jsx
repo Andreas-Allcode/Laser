@@ -20,6 +20,7 @@ export default function PortfolioManagement() {
   const mockSalePortfolios = [
     { id: 'SALE_1', name: 'Uncollectible Accounts Package', created_by: 'admin@bayview.com', created_date: '2024-01-10', account_count: 2450, original_face_value: 1850000, asking_price: 185000, sale_status: 'for_sale', portfolio_type: 'for_sale', description: 'Collection of accounts marked as uncollectible after 18+ months of collection efforts', top_states: [{ state: 'TX', percentage: 28 }, { state: 'CA', percentage: 22 }, { state: 'FL', percentage: 15 }] },
     { id: 'SALE_2', name: 'Small Balance Portfolio', created_by: 'manager@bayview.com', created_date: '2024-01-05', account_count: 8920, original_face_value: 890000, asking_price: 89000, sale_status: 'under_review', portfolio_type: 'for_sale', description: 'Accounts with balances under $500, suitable for high-volume collection', top_states: [{ state: 'NY', percentage: 18 }, { state: 'IL', percentage: 16 }, { state: 'OH', percentage: 12 }] },
+    { id: 'SALE_3', name: 'Medical Debt Collection', created_by: 'admin@bayview.com', created_date: '2023-12-15', account_count: 1250, original_face_value: 625000, asking_price: 62500, sale_status: 'sold', portfolio_type: 'for_sale', description: 'Medical debt accounts with comprehensive scrub data', top_states: [{ state: 'CA', percentage: 35 }, { state: 'TX', percentage: 20 }, { state: 'FL', percentage: 18 }] },
   ];
 
   const handleSelectPortfolio = (portfolio) => {

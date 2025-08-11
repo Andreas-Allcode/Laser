@@ -32,13 +32,39 @@ export default function PortfolioDetails({ portfolio, onBack, onUploadFile }) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const mockDebts = [
-    { debtor_id: 'DEBT_001', debtor_info: { first_name: 'John', last_name: 'Smith', state: 'TX' }, current_balance: 1545.25, original_balance: 2100.00, last_payment_amount: 150.00, last_payment_date: '2024-01-15', status: 'active_internal' },
-    { debtor_id: 'DEBT_002', debtor_info: { first_name: 'Maria', last_name: 'Garcia', state: 'CA' }, current_balance: 2840.50, original_balance: 3200.00, last_payment_amount: 0, last_payment_date: null, status: 'placed_external' },
-    { debtor_id: 'DEBT_003', debtor_info: { first_name: 'Robert', last_name: 'Johnson', state: 'FL' }, current_balance: 0, original_balance: 1850.75, last_payment_amount: 1850.75, last_payment_date: '2024-01-20', status: 'resolved_paid' },
-    { debtor_id: 'DEBT_004', debtor_info: { first_name: 'Sarah', last_name: 'Williams', state: 'NY' }, current_balance: 950.00, original_balance: 950.00, last_payment_amount: 0, last_payment_date: null, status: 'uncollectible_bankruptcy' },
-    { debtor_id: 'DEBT_005', debtor_info: { first_name: 'Michael', last_name: 'Davis', state: 'TX' }, current_balance: 3250.80, original_balance: 4100.00, last_payment_amount: 200.00, last_payment_date: '2023-12-28', status: 'placed_external' },
-  ];
+  // Generate portfolio-specific mock debts
+  const generatePortfolioDebts = (portfolioId, count = 20) => {
+    const firstNames = ['John', 'Maria', 'Robert', 'Sarah', 'Michael', 'Jennifer', 'David', 'Lisa', 'James', 'Patricia', 'Christopher', 'Linda', 'Matthew', 'Elizabeth', 'Anthony'];
+    const lastNames = ['Smith', 'Garcia', 'Johnson', 'Williams', 'Davis', 'Brown', 'Jones', 'Miller', 'Wilson', 'Moore', 'Taylor', 'Anderson', 'Thomas', 'Jackson', 'White'];
+    const states = ['TX', 'CA', 'FL', 'NY', 'IL', 'PA', 'OH', 'GA', 'NC', 'MI'];
+    const statuses = ['active_internal', 'placed_external', 'resolved_paid', 'uncollectible_bankruptcy', 'payment_plan_active'];
+    
+    return Array.from({ length: count }, (_, i) => {
+      const seed = portfolioId.charCodeAt(portfolioId.length - 1) + i;
+      const originalBalance = 500 + (seed * 47) % 5000;
+      const currentBalance = Math.max(0, originalBalance - (seed * 23) % originalBalance);
+      const hasPayment = seed % 3 === 0;
+      
+      return {
+        debtor_id: `${portfolioId}_${String(i + 1).padStart(3, '0')}`,
+        debtor_info: {
+          first_name: firstNames[seed % firstNames.length],
+          last_name: lastNames[(seed + 7) % lastNames.length],
+          state: states[seed % states.length],
+          homeowner: seed % 3 === 0,
+          score_recovery_bankcard: 500 + (seed * 17) % 300,
+          score_recovery_retail: 520 + (seed * 19) % 280
+        },
+        current_balance: currentBalance,
+        original_balance: originalBalance,
+        last_payment_amount: hasPayment ? (seed * 13) % 500 : 0,
+        last_payment_date: hasPayment ? new Date(Date.now() - (seed * 86400000)).toISOString().split('T')[0] : null,
+        status: statuses[seed % statuses.length]
+      };
+    });
+  };
+  
+  const mockDebts = generatePortfolioDebts(portfolio.id, Math.min(portfolio.account_count || 20, 50));
 
   const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString() : 'N/A';
@@ -84,10 +110,14 @@ export default function PortfolioDetails({ portfolio, onBack, onUploadFile }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Total Accounts</p><p className="text-2xl font-bold">{portfolio.account_count.toLocaleString()}</p></div><Users className="w-8 h-8 text-primary" /></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Total Accounts</p><p className="text-2xl font-bold">{portfolio.account_count?.toLocaleString()}</p></div><Users className="w-8 h-8 text-primary" /></div></CardContent></Card>
         <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Face Value</p><p className="text-2xl font-bold">${(portfolio.original_face_value / 1000000).toFixed(1)}M</p></div><DollarSign className="w-8 h-8 text-primary" /></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Total Collected</p><p className="text-2xl font-bold text-green-600">${(portfolio.kpis.total_collected / 1000000).toFixed(1)}M</p></div><CheckCircle className="w-8 h-8 text-green-500" /></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Avg Balance</p><p className="text-2xl font-bold">${portfolio.kpis.average_balance}</p></div><BarChart3 className="w-8 h-8 text-primary" /></div></CardContent></Card>
+        {portfolio.portfolio_type === 'for_sale' ? (
+          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Asking Price</p><p className="text-2xl font-bold text-green-600">${(portfolio.asking_price / 1000000).toFixed(1)}M</p></div><DollarSign className="w-8 h-8 text-green-500" /></div></CardContent></Card>
+        ) : (
+          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Total Collected</p><p className="text-2xl font-bold text-green-600">${((portfolio.kpis?.total_collected || 0) / 1000000).toFixed(1)}M</p></div><CheckCircle className="w-8 h-8 text-green-500" /></div></CardContent></Card>
+        )}
+        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">{portfolio.portfolio_type === 'for_sale' ? 'Created Date' : 'Avg Balance'}</p><p className="text-2xl font-bold">{portfolio.portfolio_type === 'for_sale' ? new Date(portfolio.created_date).toLocaleDateString() : `$${portfolio.kpis?.average_balance || 'N/A'}`}</p></div><BarChart3 className="w-8 h-8 text-primary" /></div></CardContent></Card>
       </div>
 
       <Card>

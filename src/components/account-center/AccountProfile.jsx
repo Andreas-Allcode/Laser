@@ -56,10 +56,117 @@ export default function AccountProfile({ account, onBack, onUpdate, onStatusChan
             <TabsList className="grid w-full grid-cols-4"><TabsTrigger value="profile"><User className="w-4 h-4 mr-2"/>Profile</TabsTrigger><TabsTrigger value="payments"><DollarSign className="w-4 h-4 mr-2"/>Payments</TabsTrigger><TabsTrigger value="notes"><FileText className="w-4 h-4 mr-2"/>Notes</TabsTrigger><TabsTrigger value="activity"><History className="w-4 h-4 mr-2"/>Activity</TabsTrigger></TabsList>
             <TabsContent value="profile" className="mt-6">
               <Card><CardHeader><CardTitle className="text-primary">Debtor Profile Details</CardTitle></CardHeader><CardContent className="space-y-6">
-                  {/* Editable form fields would go here, simplified for brevity */}
-                  <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t">
-                    {isEditing ? (<><Button onClick={handleCancel} variant="outline"><X className="w-4 h-4 mr-2"/>Cancel</Button><Button onClick={handleSave}><Save className="w-4 h-4 mr-2"/>Save Changes</Button></>) : (<Button onClick={() => setIsEditing(true)} variant="outline"><Edit3 className="w-4 h-4 mr-2"/>Edit Profile</Button>)}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>First Name</Label>
+                    <Input 
+                      value={editedAccount.debtor_info?.first_name || ''} 
+                      onChange={(e) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, first_name: e.target.value}})}
+                      disabled={!isEditing}
+                    />
                   </div>
+                  <div>
+                    <Label>Last Name</Label>
+                    <Input 
+                      value={editedAccount.debtor_info?.last_name || ''} 
+                      onChange={(e) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, last_name: e.target.value}})}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <Input 
+                      value={editedAccount.debtor_info?.phone || ''} 
+                      onChange={(e) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, phone: e.target.value}})}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input 
+                      value={editedAccount.debtor_info?.email || ''} 
+                      onChange={(e) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, email: e.target.value}})}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label>Address</Label>
+                    <Input 
+                      value={editedAccount.debtor_info?.address || ''} 
+                      onChange={(e) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, address: e.target.value}})}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label>City</Label>
+                    <Input 
+                      value={editedAccount.debtor_info?.city || ''} 
+                      onChange={(e) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, city: e.target.value}})}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label>State</Label>
+                    <Input 
+                      value={editedAccount.debtor_info?.state || ''} 
+                      onChange={(e) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, state: e.target.value}})}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label>ZIP Code</Label>
+                    <Input 
+                      value={editedAccount.debtor_info?.zip || ''} 
+                      onChange={(e) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, zip: e.target.value}})}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label>Homeowner</Label>
+                    <Select 
+                      value={editedAccount.debtor_info?.homeowner ? 'yes' : 'no'} 
+                      onValueChange={(value) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, homeowner: value === 'yes'}})}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Recovery Score (Bankcard)</Label>
+                    <Input 
+                      type="number"
+                      value={editedAccount.debtor_info?.score_recovery_bankcard || ''} 
+                      onChange={(e) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, score_recovery_bankcard: parseInt(e.target.value)}})}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label>Recovery Score (Retail)</Label>
+                    <Input 
+                      type="number"
+                      value={editedAccount.debtor_info?.score_recovery_retail || ''} 
+                      onChange={(e) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, score_recovery_retail: parseInt(e.target.value)}})}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label>Employer</Label>
+                    <Input 
+                      value={editedAccount.debtor_info?.employer || ''} 
+                      onChange={(e) => setEditedAccount({...editedAccount, debtor_info: {...editedAccount.debtor_info, employer: e.target.value}})}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t">
+                  {isEditing ? (<><Button onClick={handleCancel} variant="outline"><X className="w-4 h-4 mr-2"/>Cancel</Button><Button onClick={handleSave}><Save className="w-4 h-4 mr-2"/>Save Changes</Button></>) : (<Button onClick={() => setIsEditing(true)} variant="outline"><Edit3 className="w-4 h-4 mr-2"/>Edit Profile</Button>)}
+                </div>
               </CardContent></Card>
             </TabsContent>
             <TabsContent value="payments" className="mt-6"><PaymentHistory debtorId={account.debtor_id} /></TabsContent>

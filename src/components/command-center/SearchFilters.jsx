@@ -31,6 +31,7 @@ const FILTER_FIELDS = [
   { value: 'charge_off_date', label: 'Charge Off Date' },
   { value: 'debtor_info.first_name', label: 'First Name' },
   { value: 'debtor_info.last_name', label: 'Last Name' },
+  { value: 'debtor_info.homeowner', label: 'Homeowner' },
 ];
 
 const OPERATORS = [

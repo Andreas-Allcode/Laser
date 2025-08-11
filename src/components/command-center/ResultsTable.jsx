@@ -405,6 +405,9 @@ export default function ResultsTable({
                   <div><strong>Email:</strong> {selectedDebt.debtor_info?.email || 'N/A'}</div>
                   <div><strong>Phone:</strong> {selectedDebt.debtor_info?.phone || 'N/A'}</div>
                   <div><strong>Employer:</strong> {selectedDebt.debtor_info?.employer || 'N/A'}</div>
+                  <div><strong>Homeowner:</strong> {selectedDebt.debtor_info?.homeowner ? 'Yes' : 'No'}</div>
+                  <div><strong>Recovery Score (Bankcard):</strong> {selectedDebt.debtor_info?.score_recovery_bankcard || 'N/A'}</div>
+                  <div><strong>Recovery Score (Retail):</strong> {selectedDebt.debtor_info?.score_recovery_retail || 'N/A'}</div>
                 </div>
               </div>
               

@@ -20,6 +20,7 @@ const searchTypes = [
   { value: 'name', label: 'Name', icon: User },
   { value: 'phone', label: 'Phone', icon: Phone },
   { value: 'address', label: 'Address', icon: MapPin },
+  { value: 'homeowner', label: 'Homeowner', icon: User },
 ];
 
 export default function AccountSearch({ onAccountSelect }) {
@@ -100,6 +101,9 @@ export default function AccountSearch({ onAccountSelect }) {
             query = query.ilike('debtor_info->>phone', `%${cleanPhone}%`);
           } else if (searchType === 'address') {
             query = query.ilike('debtor_info->>address', `%${searchValue}%`);
+          } else if (searchType === 'homeowner') {
+            const isHomeowner = searchValue.toLowerCase().includes('yes') || searchValue.toLowerCase().includes('true') || searchValue.toLowerCase().includes('owner');
+            query = query.eq('debtor_info->>homeowner', isHomeowner);
           }
         }
         

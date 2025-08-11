@@ -67,7 +67,10 @@ export const createSampleData = async () => {
           city: 'Anytown',
           state: 'TX',
           zip: '12345',
-          employer: 'Tech Solutions Inc'
+          employer: 'Tech Solutions Inc',
+          score_recovery_bankcard: 650,
+          score_recovery_retail: 675,
+          homeowner: true
         },
         status: 'active_internal'
       },
@@ -98,7 +101,10 @@ export const createSampleData = async () => {
           city: 'Otherville',
           state: 'CA',
           zip: '67890',
-          employer: 'Healthcare Partners'
+          employer: 'Healthcare Partners',
+          score_recovery_bankcard: 580,
+          score_recovery_retail: 620,
+          homeowner: false
         },
         status: 'placed_external'
       },
@@ -129,7 +135,10 @@ export const createSampleData = async () => {
           city: 'Somewhere',
           state: 'FL',
           zip: '33101',
-          employer: 'Construction Corp'
+          employer: 'Construction Corp',
+          score_recovery_bankcard: 720,
+          score_recovery_retail: 740,
+          homeowner: true
         },
         status: 'active_internal'
       },
@@ -160,7 +169,10 @@ export const createSampleData = async () => {
           city: 'Newtown',
           state: 'NY',
           zip: '10001',
-          employer: 'Marketing Agency'
+          employer: 'Marketing Agency',
+          score_recovery_bankcard: 610,
+          score_recovery_retail: 590,
+          homeowner: false
         },
         status: 'resolved_paid'
       },
@@ -191,7 +203,10 @@ export const createSampleData = async () => {
           city: 'Hometown',
           state: 'OH',
           zip: '44101',
-          employer: 'Retail Store'
+          employer: 'Retail Store',
+          score_recovery_bankcard: 540,
+          score_recovery_retail: 565,
+          homeowner: true
         },
         status: 'uncollectible_bankruptcy'
       }
