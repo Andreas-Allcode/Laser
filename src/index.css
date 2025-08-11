@@ -156,3 +156,17 @@ button:focus-visible {
     @apply bg-background text-foreground;
   }
 }
+
+/* Remove any list styling from navigation */
+.sidebar-nav ul,
+.sidebar-nav li {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0;
+  padding: 0;
+}
+
+.sidebar-nav ul::before,
+.sidebar-nav li::before {
+  content: none !important;
+}

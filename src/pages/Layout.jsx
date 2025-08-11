@@ -33,6 +33,7 @@ import {
 import {
   Sidebar,
   SidebarContent,
+  SidebarMenu,
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
@@ -78,6 +79,7 @@ export default function Layout({ children, currentPageName }) {
           </SidebarHeader>
 
           <SidebarContent className="p-2">
+            <SidebarMenu>
               {navigationItems.map((item) => {
                 const isActive = location.pathname === item.url || (item.url !== createPageUrl("Dashboard") && location.pathname.startsWith(item.url));
                 return (
@@ -85,7 +87,7 @@ export default function Layout({ children, currentPageName }) {
                     <Link to={item.url}>
                       <Button
                         variant={isActive ? "default" : "ghost"}
-                        className={`w-full justify-start gap-3 text-base font-normal h-11 ${isActive ? 'text-primary-foreground' : 'text-foreground'}`}
+                        className={`w-full justify-start gap-2 text-base font-normal h-10 ${isActive ? 'text-primary-foreground' : 'text-foreground'}`}
                       >
                         <item.icon className="w-5 h-5" />
                         <span>{item.title}</span>
@@ -94,6 +96,7 @@ export default function Layout({ children, currentPageName }) {
                   </SidebarMenuItem>
                 );
               })}
+            </SidebarMenu>
           </SidebarContent>
 
           <SidebarFooter className="p-4 border-t">
