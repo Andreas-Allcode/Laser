@@ -33,7 +33,7 @@ const StatCard = ({ title, value, icon: Icon, trend, subtitle }) => (
   </Card>
 );
 
-export default function PortfolioSummary({ portfolios, onSelectPortfolio, onCreatePortfolio }) {
+export default function PortfolioSummary({ portfolios, onSelectPortfolio, onCreatePortfolio, type = 'purchased' }) {
   const totalPortfolios = portfolios.length;
   const totalFaceValue = portfolios.reduce((sum, p) => sum + p.original_face_value, 0);
   const totalAccounts = portfolios.reduce((sum, p) => sum + p.account_count, 0);
@@ -58,11 +58,23 @@ export default function PortfolioSummary({ portfolios, onSelectPortfolio, onCrea
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div/>
-        <Button onClick={onCreatePortfolio}>
-          <FileText className="w-4 h-4 mr-2" />
-          Create Portfolio
-        </Button>
+        <div>
+          <h2 className="text-2xl font-bold">
+            {type === 'purchased' ? 'Purchased Portfolios' : 'Portfolios for Sale'}
+          </h2>
+          <p className="text-muted-foreground">
+            {type === 'purchased' 
+              ? 'Portfolios acquired from debt sellers and currently being worked' 
+              : 'Portfolios created for sale to external debt buyers'
+            }
+          </p>
+        </div>
+        {type === 'purchased' && (
+          <Button onClick={onCreatePortfolio}>
+            <FileText className="w-4 h-4 mr-2" />
+            Upload Portfolio
+          </Button>
+        )}
       </div>
 
       {/* Summary Stats */}
