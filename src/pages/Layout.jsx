@@ -2,6 +2,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { useAuth } from "@/components/auth/AuthProvider";
 import {
   Target,
   LayoutDashboard,
@@ -57,6 +58,11 @@ const navigationItems = [
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <SidebarProvider>
@@ -75,7 +81,7 @@ export default function Layout({ children, currentPageName }) {
               {navigationItems.map((item) => {
                 const isActive = location.pathname === item.url || (item.url !== createPageUrl("Dashboard") && location.pathname.startsWith(item.url));
                 return (
-                  <SidebarMenuItem key={item.title} asChild>
+                  <SidebarMenuItem key={item.title}>
                     <Link to={item.url}>
                       <Button
                         variant={isActive ? "default" : "ghost"}
@@ -119,8 +125,8 @@ export default function Layout({ children, currentPageName }) {
                   <Button variant="ghost" className="flex items-center gap-2 p-2">
                      <UserCircle className="w-8 h-8 text-primary"/>
                      <div className="hidden md:block text-left">
-                       <p className="font-medium text-sm text-foreground">Bayview Admin</p>
-                       <p className="text-xs text-muted-foreground">Administrator</p>
+                       <p className="font-medium text-sm text-foreground">{user?.email}</p>
+                       <p className="text-xs text-muted-foreground">User</p>
                      </div>
                      <ChevronDown className="w-4 h-4 hidden md:block text-muted-foreground"/>
                   </Button>
@@ -132,7 +138,10 @@ export default function Layout({ children, currentPageName }) {
                   <DropdownMenuItem>Billing</DropdownMenuItem>
                   <DropdownMenuItem>Settings</DropdownMenuItem>
                   <DropdownMenuSeparator/>
-                  <DropdownMenuItem className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                  <DropdownMenuItem 
+                    className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                    onClick={handleSignOut}
+                  >
                     <LogOut className="w-4 h-4 mr-2"/>
                     <span>Log out</span>
                   </DropdownMenuItem>

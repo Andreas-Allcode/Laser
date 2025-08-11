@@ -11,11 +11,7 @@ import {
 } from '@/components/ui/select';
 import { Search, User, Hash, Phone, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-
-const mockAccounts = [
-  { debtor_id: 'DEBT_001', debtor_info: { first_name: 'John', last_name: 'Smith', phone: '555-1234', address: '123 Main St', city: 'Anytown', state: 'TX', zip: '12345' }, current_balance: 1545.25, status: 'active_internal', portfolio_id: 'PORT_1' },
-  { debtor_id: 'DEBT_002', debtor_info: { first_name: 'Maria', last_name: 'Garcia', phone: '555-5678', address: '456 Oak Ave', city: 'Otherville', state: 'CA', zip: '67890' }, current_balance: 2840.50, status: 'placed_external', portfolio_id: 'PORT_1' },
-];
+import { supabase } from '@/lib/supabase';
 
 const searchTypes = [
   { value: 'debtor_id', label: 'Debtor ID', icon: Hash },
@@ -28,18 +24,47 @@ export default function AccountSearch({ onAccountSelect }) {
   const [searchType, setSearchType] = useState('debtor_id');
   const [searchValue, setSearchValue] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (searchValue.trim() === '') {
-      setSearchResults([]);
-      return;
-    }
-    const filtered = mockAccounts.filter(acc => {
-      if (searchType === 'name') return `${acc.debtor_info.first_name} ${acc.debtor_info.last_name}`.toLowerCase().includes(searchValue.toLowerCase());
-      if (searchType === 'phone') return acc.debtor_info.phone.includes(searchValue);
-      return acc[searchType]?.toLowerCase().includes(searchValue.toLowerCase());
-    });
-    setSearchResults(filtered);
+    const searchDebts = async () => {
+      if (searchValue.trim() === '') {
+        setSearchResults([]);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        let query = supabase.from('debts').select('*');
+        
+        if (searchType === 'debtor_id') {
+          query = query.ilike('debtor_id', `%${searchValue}%`);
+        } else if (searchType === 'name') {
+          query = query.or(`debtor_info->>first_name.ilike.%${searchValue}%,debtor_info->>last_name.ilike.%${searchValue}%`);
+        } else if (searchType === 'phone') {
+          query = query.ilike('debtor_info->>phone', `%${searchValue}%`);
+        } else if (searchType === 'address') {
+          query = query.ilike('debtor_info->>address', `%${searchValue}%`);
+        }
+        
+        const { data, error } = await query.limit(50);
+        
+        if (error) {
+          console.error('Search error:', error);
+          setSearchResults([]);
+        } else {
+          setSearchResults(data || []);
+        }
+      } catch (error) {
+        console.error('Search error:', error);
+        setSearchResults([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const timeoutId = setTimeout(searchDebts, 300);
+    return () => clearTimeout(timeoutId);
   }, [searchValue, searchType]);
 
   const getStatusColor = (status) => ({
@@ -58,17 +83,42 @@ export default function AccountSearch({ onAccountSelect }) {
           </div>
         </div>
         <div className="space-y-3 max-h-[60vh] overflow-y-auto p-1">
-          <h4 className="font-semibold">{searchResults.length} {searchResults.length === 1 ? 'Account' : 'Accounts'} Found</h4>
-          {searchResults.map((result) => (
-            <div key={result.debtor_id} onClick={() => onAccountSelect(result)} className="p-4 rounded-lg border bg-card hover:border-primary cursor-pointer transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3"><Badge>{result.debtor_id}</Badge><h5 className="font-semibold">{result.debtor_info.first_name} {result.debtor_info.last_name}</h5></div>
-                <div className="flex items-center gap-3"><Badge variant="outline" className={getStatusColor(result.status)}>{result.status.replace(/_/g, ' ')}</Badge><span className="font-bold text-primary">${result.current_balance.toLocaleString()}</span></div>
+          <h4 className="font-semibold">
+            {loading ? 'Searching...' : `${searchResults.length} ${searchResults.length === 1 ? 'Account' : 'Accounts'} Found`}
+          </h4>
+          {loading ? (
+            <div className="text-center py-8 text-muted-foreground">Searching accounts...</div>
+          ) : (
+            searchResults.map((result) => (
+              <div key={result.id} onClick={() => onAccountSelect(result)} className="p-4 rounded-lg border bg-card hover:border-primary cursor-pointer transition-all">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <Badge>{result.debtor_id}</Badge>
+                    <h5 className="font-semibold">
+                      {result.debtor_info?.first_name || 'N/A'} {result.debtor_info?.last_name || 'N/A'}
+                    </h5>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" className={getStatusColor(result.status)}>
+                      {result.status.replace(/_/g, ' ')}
+                    </Badge>
+                    <span className="font-bold text-primary">
+                      ${(result.current_balance || 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <strong>Address:</strong> {result.debtor_info?.address || 'N/A'}, {result.debtor_info?.city || 'N/A'}, {result.debtor_info?.state || 'N/A'} {result.debtor_info?.zip || 'N/A'}
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground"><strong>Address:</strong> {result.debtor_info.address}, {result.debtor_info.city}, {result.debtor_info.state} {result.debtor_info.zip}</div>
-            </div>
-          ))}
-          {searchResults.length === 0 && <div className="text-center py-8 text-muted-foreground">No accounts found.</div>}
+            ))
+          )}
+          {!loading && searchResults.length === 0 && searchValue.trim() !== '' && (
+            <div className="text-center py-8 text-muted-foreground">No accounts found.</div>
+          )}
+          {!loading && searchValue.trim() === '' && (
+            <div className="text-center py-8 text-muted-foreground">Enter search criteria to find accounts.</div>
+          )}
         </div>
       </CardContent>
     </Card>

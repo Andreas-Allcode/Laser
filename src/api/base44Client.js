@@ -1,8 +1,20 @@
-import { createClient } from '@base44/sdk';
-// import { getAccessToken } from '@base44/sdk/utils/auth-utils';
+import { supabase } from '@/lib/supabase'
 
-// Create a client with authentication required
-export const base44 = createClient({
-  appId: "6890deed01cb2401b9f9c178", 
-  requiresAuth: true // Ensure authentication is required for all operations
-});
+// Database operations
+export const db = {
+  // Clients
+  getClients: () => supabase.from('clients').select('*'),
+  createClient: (data) => supabase.from('clients').insert(data),
+  
+  // Portfolios
+  getPortfolios: () => supabase.from('portfolios').select('*'),
+  createPortfolio: (data) => supabase.from('portfolios').insert(data),
+  
+  // Debts
+  getDebts: () => supabase.from('debts').select('*'),
+  createDebt: (data) => supabase.from('debts').insert(data),
+  
+  // Payments
+  getPayments: () => supabase.from('payments').select('*'),
+  createPayment: (data) => supabase.from('payments').insert(data),
+}

@@ -1,8 +1,16 @@
-# Base44 App
+# Laser - Debt Collection & Buyback Platform
 
+A comprehensive debt collection and buyback management system built with React, Vite, and Supabase.
 
-This app was created automatically by Base44.
-It's a Vite+React app that communicates with the Base44 API.
+## Features
+
+- **Portfolio Management** - Manage debt portfolios and track performance
+- **Command Center** - Search and filter debt accounts
+- **Buy Back Center** - Handle buyback requests and approvals
+- **Payment Processing** - Track payments and payment plans
+- **Scrub Management** - Data verification and cleaning
+- **Remittance Center** - Agency remittance processing
+- **Notification System** - Real-time alerts and notifications
 
 ## Running the app
 
@@ -17,4 +25,10 @@ npm run dev
 npm run build
 ```
 
-For more information and support, please contact Base44 support at app@base44.com.
+## Authentication
+
+The app uses Supabase authentication. Users can sign up and sign in with email/password.
+
+## Database
+
+The app uses Supabase PostgreSQL with a comprehensive schema for debt collection operations.

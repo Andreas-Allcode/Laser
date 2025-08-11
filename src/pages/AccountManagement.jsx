@@ -27,6 +27,7 @@ export default function AccountManagement() {
     toast({
       title: "Account Updated",
       description: "Account information has been saved successfully.",
+      duration: 5000,
     });
   }, [toast]);
 
@@ -39,6 +40,7 @@ export default function AccountManagement() {
     toast({
       title: "Status Updated",
       description: `Account status changed to ${statusUpdate.new_status.replace(/_/g, ' ')}`,
+      duration: 5000,
     });
   }, [toast]);
 
