@@ -41,13 +41,23 @@ export default function FileUploader({ isOpen, onClose, portfolios }) {
   const [step, setStep] = useState(1);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [selectedPortfolio, setSelectedPortfolio] = useState('');
+  const [isNewPortfolio, setIsNewPortfolio] = useState(false);
+  const [newPortfolioName, setNewPortfolioName] = useState('');
   const [fieldMappings, setFieldMappings] = useState({});
   const [previewData, setPreviewData] = useState([]);
   const [validationResults, setValidationResults] = useState(null);
   const fileInputRef = useRef(null);
   const { toast } = useToast();
 
-  const availableFields = ['debtor_id', 'first_name', 'last_name', 'ssn', 'dob', 'address', 'city', 'state', 'zip', 'phone', 'email', 'account_number', 'original_creditor', 'current_balance', 'original_balance', 'charge_off_date', 'last_payment_date', 'last_payment_amount'];
+  const availableFields = [
+    'debtor_id', 'beam_id', 'first_name', 'last_name', 'ssn', 'date_of_birth', 
+    'address', 'address2', 'city', 'state', 'zip', 'phone', 'email', 'employer',
+    'homeowner', 'score_recovery_bankcard', 'score_recovery_retail',
+    'original_account_number', 'issuer_account_number', 'seller_account_number',
+    'original_creditor', 'current_balance', 'original_balance', 'charge_off_amount',
+    'total_paid', 'charge_off_date', 'account_open_date', 'delinquency_date',
+    'last_payment_date', 'last_payment_amount'
+  ];
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -74,7 +84,14 @@ export default function FileUploader({ isOpen, onClose, portfolios }) {
   };
   
   const resetUploader = () => {
-    setStep(1); setUploadedFile(null); setSelectedPortfolio(''); setFieldMappings({}); setPreviewData([]); setValidationResults(null);
+    setStep(1); 
+    setUploadedFile(null); 
+    setSelectedPortfolio(''); 
+    setIsNewPortfolio(false);
+    setNewPortfolioName('');
+    setFieldMappings({}); 
+    setPreviewData([]); 
+    setValidationResults(null);
   };
   const handleClose = () => { resetUploader(); onClose(); };
 
@@ -85,20 +102,78 @@ export default function FileUploader({ isOpen, onClose, portfolios }) {
         
         {step === 1 && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><Label>Select Portfolio</Label><Select value={selectedPortfolio} onValueChange={setSelectedPortfolio}><SelectTrigger><SelectValue placeholder="Choose portfolio" /></SelectTrigger><SelectContent>{portfolios.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <label className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    name="portfolioOption" 
+                    checked={!isNewPortfolio} 
+                    onChange={() => setIsNewPortfolio(false)}
+                  />
+                  <span>Existing Portfolio</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    name="portfolioOption" 
+                    checked={isNewPortfolio} 
+                    onChange={() => setIsNewPortfolio(true)}
+                  />
+                  <span>New Portfolio</span>
+                </label>
+              </div>
+              
+              {isNewPortfolio ? (
+                <div>
+                  <Label>Portfolio Name</Label>
+                  <Input 
+                    value={newPortfolioName} 
+                    onChange={(e) => setNewPortfolioName(e.target.value)}
+                    placeholder="Enter new portfolio name"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <Label>Select Portfolio</Label>
+                  <Select value={selectedPortfolio} onValueChange={setSelectedPortfolio}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose portfolio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {portfolios.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
               <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls,.txt" onChange={handleFileUpload} className="hidden" />
               {uploadedFile ? (<div className="flex items-center justify-center gap-3"><FileSpreadsheet className="w-12 h-12 text-primary" /><p>{uploadedFile.name}</p><Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setUploadedFile(null); }}><X className="w-4 h-4" /></Button></div>) : (<div><Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" /><p>Click to upload or drag and drop</p></div>)}
             </div>
-            {uploadedFile && <div className="flex justify-end"><Button onClick={() => setStep(2)} disabled={!selectedPortfolio}>Next: Map Fields</Button></div>}
+            {uploadedFile && (
+              <div className="flex justify-end">
+                <Button 
+                  onClick={() => setStep(2)} 
+                  disabled={isNewPortfolio ? !newPortfolioName.trim() : !selectedPortfolio}
+                >
+                  Next: Map Fields
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
         {step === 2 && (
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Map File Columns to Database Fields</h3>
+            <div>
+              <h3 className="text-xl font-semibold">Map File Columns to Database Fields</h3>
+              <p className="text-muted-foreground">
+                {isNewPortfolio ? `Creating new portfolio: ${newPortfolioName}` : `Adding to portfolio: ${portfolios.find(p => p.id === selectedPortfolio)?.name}`}
+              </p>
+            </div>
             <div className="rounded-md border"><Table><TableHeader><TableRow><TableHead>File Column</TableHead><TableHead>Sample Data</TableHead><TableHead>Map to Field</TableHead></TableRow></TableHeader><TableBody>{Object.keys(previewData[0] || {}).map((col, i) => (<TableRow key={col}><TableCell>Column {i + 1}</TableCell><TableCell>{previewData[0][col]}</TableCell><TableCell><Select value={fieldMappings[col] || ''} onValueChange={v => setFieldMappings(p => ({ ...p, [col]: v }))}><SelectTrigger><SelectValue placeholder="Select field" /></SelectTrigger><SelectContent>{availableFields.map(f => <SelectItem key={f} value={f}>{f.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select></TableCell></TableRow>))}</TableBody></Table></div>
             <div className="flex justify-between"><Button variant="outline" onClick={() => setStep(1)}>Back</Button><div className="flex gap-2"><Button onClick={validateMappings} disabled={Object.keys(fieldMappings).length === 0}>Next: Validate Data</Button></div></div>
           </div>
