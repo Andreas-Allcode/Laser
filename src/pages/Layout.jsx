@@ -115,7 +115,7 @@ export default function Layout({ children, currentPageName }) {
         <main className="flex-1 flex flex-col">
           <header className="flex items-center justify-between border-b p-4 bg-card">
             <div className="flex items-center gap-4">
-              <SidebarTrigger className="p-2 rounded-lg md:hidden" />
+              <SidebarTrigger className="p-2 rounded-lg" />
               <h1 className="text-2xl font-semibold text-foreground">{currentPageName || 'Dashboard'}</h1>
             </div>
             <div className="flex items-center gap-4">

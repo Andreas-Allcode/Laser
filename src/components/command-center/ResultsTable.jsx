@@ -77,6 +77,8 @@ export default function ResultsTable({
   const [bulkAction, setBulkAction] = useState('');
   const [bulkAgency, setBulkAgency] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [selectedDebt, setSelectedDebt] = useState(null);
+  const [showDebtDetail, setShowDebtDetail] = useState(false);
 
   const visibleColumns = columns.filter(col => col.visible);
   const rowsPerPage = 50;
@@ -279,8 +281,15 @@ export default function ResultsTable({
             </TableHeader>
             <TableBody>
               {data.length > 0 ? data.map((row, index) => (
-                <TableRow key={row.debtor_id}>
-                  <TableCell>
+                <TableRow 
+                  key={row.debtor_id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => {
+                    setSelectedDebt(row);
+                    setShowDebtDetail(true);
+                  }}
+                >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={selectedRows.includes(row.debtor_id)}
                       onCheckedChange={(checked) => handleRowSelect(row.debtor_id, checked)}
@@ -346,6 +355,75 @@ export default function ResultsTable({
           </div>
         </div>
       </CardContent>
+      
+      {/* Debt Detail Modal */}
+      <Dialog open={showDebtDetail} onOpenChange={setShowDebtDetail}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Debt Account Details</DialogTitle>
+          </DialogHeader>
+          {selectedDebt && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Account Information</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><strong>Debtor ID:</strong> {selectedDebt.debtor_id}</div>
+                  <div><strong>BEAM ID:</strong> {selectedDebt.beam_id || 'N/A'}</div>
+                  <div><strong>Original Account:</strong> {selectedDebt.original_account_number}</div>
+                  <div><strong>Issuer Account:</strong> {selectedDebt.issuer_account_number || 'N/A'}</div>
+                  <div><strong>Seller Account:</strong> {selectedDebt.seller_account_number || 'N/A'}</div>
+                  <div><strong>Original Creditor:</strong> {selectedDebt.original_creditor}</div>
+                  <div><strong>Status:</strong> 
+                    <Badge className={`ml-2 ${STATUS_COLORS[selectedDebt.status] || 'bg-gray-100 text-gray-800'}`}>
+                      {selectedDebt.status?.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+                  <div><strong>Portfolio:</strong> {selectedDebt.portfolio_id}</div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Balance Information</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><strong>Current Balance:</strong> {formatCurrency(selectedDebt.current_balance)}</div>
+                  <div><strong>Original Balance:</strong> {formatCurrency(selectedDebt.original_balance)}</div>
+                  <div><strong>Charge Off Amount:</strong> {formatCurrency(selectedDebt.charge_off_amount || 0)}</div>
+                  <div><strong>Total Paid:</strong> {formatCurrency(selectedDebt.total_paid || 0)}</div>
+                  <div><strong>Account Open Date:</strong> {formatDate(selectedDebt.account_open_date)}</div>
+                  <div><strong>Charge Off Date:</strong> {formatDate(selectedDebt.charge_off_date)}</div>
+                  <div><strong>Delinquency Date:</strong> {formatDate(selectedDebt.delinquency_date)}</div>
+                  <div><strong>Last Payment:</strong> {formatDate(selectedDebt.last_payment_date)}</div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Debtor Information</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><strong>Name:</strong> {selectedDebt.debtor_info?.first_name} {selectedDebt.debtor_info?.last_name}</div>
+                  <div><strong>Date of Birth:</strong> {selectedDebt.debtor_info?.date_of_birth || 'N/A'}</div>
+                  <div><strong>SSN:</strong> {selectedDebt.debtor_info?.ssn || 'N/A'}</div>
+                  <div><strong>Email:</strong> {selectedDebt.debtor_info?.email || 'N/A'}</div>
+                  <div><strong>Phone:</strong> {selectedDebt.debtor_info?.phone || 'N/A'}</div>
+                  <div><strong>Employer:</strong> {selectedDebt.debtor_info?.employer || 'N/A'}</div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Address Information</h3>
+                <div className="text-sm space-y-1">
+                  <div><strong>Address:</strong> {selectedDebt.debtor_info?.address || 'N/A'}</div>
+                  {selectedDebt.debtor_info?.address2 && (
+                    <div><strong>Address 2:</strong> {selectedDebt.debtor_info.address2}</div>
+                  )}
+                  <div><strong>City:</strong> {selectedDebt.debtor_info?.city || 'N/A'}</div>
+                  <div><strong>State:</strong> {selectedDebt.debtor_info?.state || 'N/A'}</div>
+                  <div><strong>ZIP:</strong> {selectedDebt.debtor_info?.zip || 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
