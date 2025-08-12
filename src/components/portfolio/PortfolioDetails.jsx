@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import MediaManager from './MediaManager';
 import {
   Table,
   TableBody,
@@ -24,12 +25,14 @@ import {
   AlertTriangle,
   Skull,
   Ban,
-  MapPin
+  MapPin,
+  FolderOpen
 } from 'lucide-react';
 
 export default function PortfolioDetails({ portfolio, onBack, onUploadFile }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showMediaManager, setShowMediaManager] = useState(false);
   const itemsPerPage = 10;
 
   // Generate portfolio-specific mock debts
@@ -51,7 +54,7 @@ export default function PortfolioDetails({ portfolio, onBack, onUploadFile }) {
           first_name: firstNames[seed % firstNames.length],
           last_name: lastNames[(seed + 7) % lastNames.length],
           state: states[seed % states.length],
-          homeowner: seed % 3 === 0,
+          homeowner: seed % 2 === 0, // 50% homeowners
           score_recovery_bankcard: 500 + (seed * 17) % 300,
           score_recovery_retail: 520 + (seed * 19) % 280
         },
@@ -89,6 +92,16 @@ export default function PortfolioDetails({ portfolio, onBack, onUploadFile }) {
   const paginatedDebts = filteredDebts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredDebts.length / itemsPerPage);
 
+  // Show Media Manager if selected
+  if (showMediaManager) {
+    return (
+      <MediaManager 
+        portfolio={portfolio} 
+        onBack={() => setShowMediaManager(false)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -104,6 +117,9 @@ export default function PortfolioDetails({ portfolio, onBack, onUploadFile }) {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowMediaManager(true)}>
+            <FolderOpen className="w-4 h-4 mr-2" />Media Manager
+          </Button>
           <Button variant="outline"><Download className="w-4 h-4 mr-2" />Export</Button>
           <Button onClick={onUploadFile}><Upload className="w-4 h-4 mr-2" />Upload File</Button>
         </div>

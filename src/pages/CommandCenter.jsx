@@ -9,6 +9,7 @@ import SearchFilters from '../components/command-center/SearchFilters';
 import PreviewResults from '../components/command-center/PreviewResults';
 import ResultsTable from '../components/command-center/ResultsTable';
 import SummaryView from '../components/command-center/SummaryView';
+import DebtDetails from '../components/command-center/DebtDetails';
 
 import { Debt } from '@/api/entities';
 import { SavedSearch } from '@/api/entities'; // Fixed JavaScript syntax error: changed '=>' to 'from'
@@ -28,17 +29,48 @@ const ALL_MOCK_DEBTS = Array.from({ length: 2000 }, (_, i) => {
     const status = statuses[i % statuses.length];
     const portfolio = portfolios[i % portfolios.length];
     
+    const originalBalance = Math.floor(Math.random() * 60000) + 2000;
+    const currentBalance = Math.floor(Math.random() * 50000) + 1000;
+    const totalPaid = Math.max(0, originalBalance - currentBalance);
+    const chargeOffDate = new Date(Date.now() - Math.random() * 365 * 3 * 24 * 60 * 60 * 1000);
+    const accountOpenDate = new Date(chargeOffDate.getTime() - Math.random() * 365 * 2 * 24 * 60 * 60 * 1000);
+    const delinquencyDate = new Date(chargeOffDate.getTime() - Math.random() * 180 * 24 * 60 * 60 * 1000);
+    const lastPaymentDate = Math.random() > 0.3 ? new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000) : null;
+    
     return {
         debtor_id: `DEBT_${1000 + i}`,
+        beam_id: `BEAM_${1000 + i}`,
+        original_account_number: `ACC_${String((i * 123) % 999999).padStart(6, '0')}`,
+        issuer_account_number: `ISS_${String((i * 456) % 999999).padStart(6, '0')}`,
+        seller_account_number: `SEL_${String((i * 789) % 999999).padStart(6, '0')}`,
+        original_creditor: ['Credit Card Company A', 'Medical Services LLC', 'Auto Finance Corp', 'Retail Store Chain', 'Utility Company'][i % 5],
         debtor_info: {
             first_name: firstName,
             last_name: lastName,
+            date_of_birth: new Date(1950 + (i % 50), i % 12, (i % 28) + 1).toISOString().split('T')[0],
+            ssn: `${String((i * 7) % 900 + 100)}-${String((i * 11) % 90 + 10)}-${String((i * 13) % 9000 + 1000)}`,
             state: state,
+            homeowner: i % 2 === 0, // 50% homeowners
+            score_recovery_bankcard: 500 + (i * 17) % 300,
+            score_recovery_retail: 520 + (i * 19) % 280,
+            phone: `555-${String((i * 11) % 9000 + 1000)}`,
+            email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@email.com`,
+            address: `${i % 9999 + 1} ${['Main', 'Oak', 'Pine', 'Elm', 'Maple'][i % 5]} ${['St', 'Ave', 'Dr', 'Blvd'][i % 4]}`,
+            address2: i % 4 === 0 ? `Apt ${(i % 99) + 1}` : '',
+            city: ['Anytown', 'Otherville', 'Somewhere', 'Newtown', 'Hometown'][i % 5],
+            zip: String((i * 17) % 90000 + 10000),
+            employer: ['Tech Solutions Inc', 'Healthcare Partners', 'Construction Corp', 'Marketing Agency', 'Retail Store'][i % 5]
         },
-        current_balance: Math.floor(Math.random() * 50000) + 1000,
+        current_balance: currentBalance,
+        original_balance: originalBalance,
+        charge_off_amount: originalBalance,
+        total_paid: totalPaid,
         status: status,
         assigned_agency_id: Math.random() > 0.5 ? 'agency_a' : null,
-        charge_off_date: new Date(Date.now() - Math.random() * 365 * 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        charge_off_date: chargeOffDate.toISOString().split('T')[0],
+        account_open_date: accountOpenDate.toISOString().split('T')[0],
+        delinquency_date: delinquencyDate.toISOString().split('T')[0],
+        last_payment_date: lastPaymentDate ? lastPaymentDate.toISOString().split('T')[0] : null,
         portfolio_id: portfolio,
     };
 });
@@ -55,6 +87,7 @@ export default function CommandCenter() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [activeTab, setActiveTab] = useState('search');
+  const [selectedDebt, setSelectedDebt] = useState(null);
   
   const { toast } = useToast();
 
@@ -77,6 +110,21 @@ export default function CommandCenter() {
 
                 const actualValueStr = String(actualValue).toLowerCase();
                 const filterValueStr = String(value).toLowerCase();
+                
+                // Special handling for homeowner boolean field
+                if (field === 'debtor_info.homeowner') {
+                    const isHomeowner = actualValue === true;
+                    const searchForHomeowner = filterValueStr.includes('yes') || filterValueStr.includes('true') || filterValueStr.includes('owner');
+                    
+                    switch (operator) {
+                        case 'equals':
+                            return isHomeowner === searchForHomeowner;
+                        case 'not_equals':
+                            return isHomeowner !== searchForHomeowner;
+                        default:
+                            return isHomeowner === searchForHomeowner;
+                    }
+                }
                 
                 switch (operator) {
                     case 'equals':
@@ -375,6 +423,24 @@ export default function CommandCenter() {
     });
   };
 
+  const handleDebtSelect = (debt) => {
+    setSelectedDebt(debt);
+  };
+
+  const handleBackToSearch = () => {
+    setSelectedDebt(null);
+  };
+
+  // Show Debt Details if a debt is selected
+  if (selectedDebt) {
+    return (
+      <DebtDetails 
+        debt={selectedDebt} 
+        onBack={handleBackToSearch}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -430,6 +496,7 @@ export default function CommandCenter() {
               onPageChange={handleSearch}
               onBulkAction={handleBulkAction}
               onExport={handleExport}
+              onDebtSelect={handleDebtSelect}
             />
           </TabsContent>
           
