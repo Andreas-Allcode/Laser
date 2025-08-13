@@ -24,7 +24,8 @@ import {
   FileText,
   Grid3X3,
   List,
-  Settings
+  Settings,
+  Trash2
 } from 'lucide-react';
 
 const StatCard = ({ title, value, icon: Icon, trend, subtitle }) => (
@@ -62,7 +63,7 @@ const DEFAULT_COLUMNS = [
   { key: 'total_collected', label: 'Total Collected', visible: false },
 ];
 
-export default function PortfolioSummary({ portfolios, onSelectPortfolio, onCreatePortfolio, type = 'purchased' }) {
+export default function PortfolioSummary({ portfolios, onSelectPortfolio, onCreatePortfolio, onDeletePortfolio, type = 'purchased' }) {
   const [viewMode, setViewMode] = useState('card');
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   
@@ -234,6 +235,23 @@ export default function PortfolioSummary({ portfolios, onSelectPortfolio, onCrea
                       </span>
                     </div>
                   </div>
+                  
+                  {onDeletePortfolio && (
+                    <div className="pt-2 border-t">
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeletePortfolio(portfolio.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Portfolio
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

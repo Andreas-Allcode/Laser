@@ -14,6 +14,7 @@ import { Search, User, Hash, Phone, MapPin, Database } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { createSampleData } from '@/utils/sampleData';
+import { syncCommandCenterToDatabase } from '@/utils/syncCommandCenterData';
 
 const searchTypes = [
   { value: 'debtor_id', label: 'Debtor ID', icon: Hash },
@@ -30,6 +31,7 @@ export default function AccountSearch({ onAccountSelect }) {
   const [loading, setLoading] = useState(false);
   const [hasData, setHasData] = useState(null);
   const [creatingData, setCreatingData] = useState(false);
+  const [syncingData, setSyncingData] = useState(false);
 
   // Check if there's any data in the database
   useEffect(() => {
@@ -72,6 +74,25 @@ export default function AccountSearch({ onAccountSelect }) {
       console.error('Error creating sample data:', error);
     } finally {
       setCreatingData(false);
+    }
+  };
+
+  const handleSyncCommandCenter = async () => {
+    setSyncingData(true);
+    try {
+      const result = await syncCommandCenterToDatabase();
+      if (result.success) {
+        setHasData(true);
+        // Trigger a search to show the new data
+        if (searchValue.trim()) {
+          setSearchValue(searchValue + ' ');
+          setTimeout(() => setSearchValue(searchValue.trim()), 100);
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing Command Center data:', error);
+    } finally {
+      setSyncingData(false);
     }
   };
 
@@ -198,21 +219,51 @@ export default function AccountSearch({ onAccountSelect }) {
             <div className="text-center py-8 text-muted-foreground">
               <p>No accounts found.</p>
               {(hasData === false || hasData === null) && (
-                <div className="mt-4">
-                  <p className="text-sm mb-3">It looks like there's no data in the database yet.</p>
-                  <Button 
-                    onClick={handleCreateSampleData} 
-                    disabled={creatingData}
-                    className="gap-2"
-                  >
-                    <Database className="w-4 h-4" />
-                    {creatingData ? 'Creating Sample Data...' : 'Create Sample Data'}
-                  </Button>
+                <div className="mt-4 space-y-3">
+                  <p className="text-sm mb-3">Sync accounts from Command Center to get started.</p>
+                  <div className="flex gap-2 justify-center">
+                    <Button 
+                      onClick={handleSyncCommandCenter} 
+                      disabled={syncingData}
+                      className="gap-2"
+                      variant="default"
+                    >
+                      <Database className="w-4 h-4" />
+                      {syncingData ? 'Syncing from Command Center...' : 'Sync from Command Center'}
+                    </Button>
+                    <Button 
+                      onClick={handleCreateSampleData} 
+                      disabled={creatingData}
+                      className="gap-2"
+                      variant="outline"
+                    >
+                      <Database className="w-4 h-4" />
+                      {creatingData ? 'Creating Sample Data...' : 'Create Sample Data'}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
           )}
 
+          {!loading && searchResults.length === 0 && searchValue.trim() === '' && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>Enter search criteria to find accounts.</p>
+              {(hasData === false || hasData === null) && (
+                <div className="mt-4">
+                  <p className="text-sm mb-3">No accounts in database. Sync from Command Center to get started.</p>
+                  <Button 
+                    onClick={handleSyncCommandCenter} 
+                    disabled={syncingData}
+                    className="gap-2"
+                  >
+                    <Database className="w-4 h-4" />
+                    {syncingData ? 'Syncing from Command Center...' : 'Sync from Command Center'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

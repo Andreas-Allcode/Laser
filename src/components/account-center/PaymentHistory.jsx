@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { DollarSign } from 'lucide-react';
+import { generateMockPayments } from '@/utils/mockPayments';
 
 export default function PaymentHistory({ debtorId }) {
-  const mockPayments = [{ id: 'PAY_1', payment_amount: 150.00, payment_date: '2024-01-15', payment_method: 'credit_card', status: 'processed' }];
+  const mockPayments = generateMockPayments(debtorId);
   const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   const formatDate = (date) => new Date(date).toLocaleDateString();
   const getStatusColor = (status) => ({ processed: 'bg-green-100 text-green-800' }[status] || 'bg-gray-100 text-gray-800');

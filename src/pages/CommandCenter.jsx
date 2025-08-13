@@ -14,11 +14,18 @@ import DebtDetails from '../components/command-center/DebtDetails';
 import { Debt } from '@/api/entities';
 import { SavedSearch } from '@/api/entities'; // Fixed JavaScript syntax error: changed '=>' to 'from'
 import { Notification } from '@/api/entities';
+import { calculateTotalPaid, getLastPaymentDate } from '@/utils/mockPayments';
 
 // --- Mock Data Source ---
+// Seeded random function for consistent data generation
+function seededRandom(seed) {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
 const portfolios = Array.from({ length: 10 }, (_, i) => `PORTFOLIO_${i + 1}`);
 const states = ['TX', 'CA', 'FL', 'NY', 'IL', 'PA', 'OH', 'GA', 'NC', 'MI'];
-const statuses = ['active_internal', 'placed_external', 'resolved_paid', 'uncollectible_bankruptcy', 'payment_plan_active'];
+const statuses = ['active_internal', 'placed_external', 'resolved_paid', 'uncollectible_bankruptcy', 'resolved_settled'];
 const firstNames = ['John', 'Jane', 'Robert', 'Mary', 'Michael', 'Patricia', 'James', 'Linda', 'David', 'Susan'];
 const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez'];
 
@@ -29,16 +36,18 @@ const ALL_MOCK_DEBTS = Array.from({ length: 2000 }, (_, i) => {
     const status = statuses[i % statuses.length];
     const portfolio = portfolios[i % portfolios.length];
     
-    const originalBalance = Math.floor(Math.random() * 60000) + 2000;
-    const currentBalance = Math.floor(Math.random() * 50000) + 1000;
-    const totalPaid = Math.max(0, originalBalance - currentBalance);
-    const chargeOffDate = new Date(Date.now() - Math.random() * 365 * 3 * 24 * 60 * 60 * 1000);
-    const accountOpenDate = new Date(chargeOffDate.getTime() - Math.random() * 365 * 2 * 24 * 60 * 60 * 1000);
-    const delinquencyDate = new Date(chargeOffDate.getTime() - Math.random() * 180 * 24 * 60 * 60 * 1000);
-    const lastPaymentDate = Math.random() > 0.3 ? new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000) : null;
+    // Use seeded random for consistent data generation
+    const originalBalance = Math.floor(seededRandom(i * 1234) * 60000) + 2000;
+    const debtorId = `DEBT_${1000 + i}`;
+    const totalPaid = calculateTotalPaid(debtorId);
+    const currentBalance = Math.max(0, originalBalance - totalPaid);
+    const chargeOffDate = new Date(Date.now() - seededRandom(i * 9012) * 365 * 3 * 24 * 60 * 60 * 1000);
+    const accountOpenDate = new Date(chargeOffDate.getTime() - seededRandom(i * 2345) * 365 * 2 * 24 * 60 * 60 * 1000);
+    const delinquencyDate = new Date(chargeOffDate.getTime() - seededRandom(i * 6789) * 180 * 24 * 60 * 60 * 1000);
+    const lastPaymentDate = getLastPaymentDate(debtorId) ? new Date(getLastPaymentDate(debtorId)) : null;
     
     return {
-        debtor_id: `DEBT_${1000 + i}`,
+        debtor_id: debtorId,
         beam_id: `BEAM_${1000 + i}`,
         original_account_number: `ACC_${String((i * 123) % 999999).padStart(6, '0')}`,
         issuer_account_number: `ISS_${String((i * 456) % 999999).padStart(6, '0')}`,
@@ -66,7 +75,7 @@ const ALL_MOCK_DEBTS = Array.from({ length: 2000 }, (_, i) => {
         charge_off_amount: originalBalance,
         total_paid: totalPaid,
         status: status,
-        assigned_agency_id: Math.random() > 0.5 ? 'agency_a' : null,
+        assigned_agency_id: seededRandom(i * 4567) > 0.5 ? 'agency_a' : null,
         charge_off_date: chargeOffDate.toISOString().split('T')[0],
         account_open_date: accountOpenDate.toISOString().split('T')[0],
         delinquency_date: delinquencyDate.toISOString().split('T')[0],

@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Table,
@@ -36,8 +37,9 @@ import {
   Download
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { portfolioStorage } from '@/utils/portfolioStorage';
 
-export default function FileUploader({ isOpen, onClose, portfolios }) {
+export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioCreated }) {
   const [step, setStep] = useState(1);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [selectedPortfolio, setSelectedPortfolio] = useState('');
@@ -92,21 +94,60 @@ export default function FileUploader({ isOpen, onClose, portfolios }) {
     
     setUploadedFile(file);
     
-    // Read the actual CSV file
+    // Read the actual CSV file with proper encoding
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target.result;
-      const lines = text.split('\n').filter(line => line.trim());
+      let text = e.target.result;
+      
+      // Handle BOM (Byte Order Mark) if present
+      if (text.charCodeAt(0) === 0xFEFF) {
+        text = text.slice(1);
+      }
+      
+      // Check if file contains non-printable characters (likely binary)
+      const nonPrintableRegex = /[\x00-\x08\x0E-\x1F\x7F-\xFF]/;
+      if (nonPrintableRegex.test(text.substring(0, 100))) {
+        toast({ 
+          title: "Invalid File Format", 
+          description: "This appears to be a binary file. Please upload a CSV or text file.", 
+          variant: "destructive" 
+        });
+        setUploadedFile(null);
+        return;
+      }
+      
+      const lines = text.split(/\r?\n/).filter(line => line.trim());
       
       if (lines.length === 0) {
         toast({ title: "Error", description: "File appears to be empty.", variant: "destructive" });
         return;
       }
       
-      // Parse CSV (simple implementation)
-      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      // Better CSV parsing with proper quote handling
+      const parseCSVLine = (line) => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      };
+      
+      const headers = parseCSVLine(lines[0]);
       const rows = lines.slice(1, 6).map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+        const values = parseCSVLine(line);
         const row = {};
         headers.forEach((header, index) => {
           row[header] = values[index] || '';
@@ -139,21 +180,45 @@ export default function FileUploader({ isOpen, onClose, portfolios }) {
       return;
     }
     
-    const mappedFields = Object.values(fieldMappings).filter(Boolean);
+    const mappedFields = Object.values(fieldMappings).filter(v => v && v !== 'skip');
     if (mappedFields.length === 0) {
       toast({ title: "Error", description: "Please map at least one field.", variant: "destructive" });
       return;
     }
     
     // Validate required fields
-    const requiredFields = ['debtor_id', 'first_name', 'last_name', 'current_balance'];
+    const requiredFields = [
+      'original_creditor',
+      'original_account_number', 
+      'seller_account_number',
+      'ssn',
+      'date_of_birth',
+      'first_name',
+      'last_name',
+      'address',
+      'city',
+      'state',
+      'zip',
+      'phone',
+      'email',
+      'account_open_date',
+      'current_balance',
+      'original_balance',
+      'delinquency_date',
+      'charge_off_date'
+    ];
     const missingRequired = requiredFields.filter(field => !mappedFields.includes(field));
     
     const errors = [];
     const warnings = [];
     
     if (missingRequired.length > 0) {
-      warnings.push(`Missing recommended fields: ${missingRequired.join(', ')}`);
+      toast({ 
+        title: "Required Fields Missing", 
+        description: `Please map these required fields: ${missingRequired.join(', ')}`, 
+        variant: "destructive" 
+      });
+      return;
     }
     
     // Simulate validation of sample data
@@ -183,29 +248,44 @@ export default function FileUploader({ isOpen, onClose, portfolios }) {
     setStep(4);
     
     try {
-      // Simulate portfolio creation
       const portfolioName = isNewPortfolio ? newPortfolioName : portfolios.find(p => p.id === selectedPortfolio)?.name;
       
-      // Simulate API call to create portfolio and import data
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (isNewPortfolio) {
+        // Save portfolio using environment-aware storage
+        const newPortfolio = await portfolioStorage.savePortfolio({
+          name: portfolioName,
+          description: `Imported portfolio from ${uploadedFile.name}`,
+          purchase_date: new Date().toISOString().split('T')[0],
+          purchase_price: portfolioSummary?.calculatedPortfolioValue || 0,
+          original_face_value: portfolioSummary?.calculatedPortfolioValue || 0,
+          account_count: validationResults.valid_records,
+          status: 'active_collections',
+          portfolio_type: 'purchased',
+          kpis: {
+            total_collected: 0,
+            collection_rate: 0,
+            average_balance: portfolioSummary?.avgTotalDue || 0,
+            average_charge_off_days: portfolioSummary?.avgChargeOffDays || 0,
+            resolved_percentage: 0,
+            bankruptcy_percentage: 0,
+            deceased_percentage: 0,
+            cease_desist_percentage: 0,
+            placed_percentage: 0
+          },
+          top_states: portfolioSummary?.topStates || []
+        });
+        
+        // Notify parent component
+        if (onPortfolioCreated) {
+          onPortfolioCreated(newPortfolio);
+        }
+      }
       
-      // In a real implementation, this would:
-      // 1. Create the portfolio in the database
-      // 2. Process the CSV file with the field mappings
-      // 3. Insert the debt records into the database
-      // 4. Return the created portfolio ID
-      
-      console.log('Portfolio created:', {
-        name: portfolioName,
-        isNew: isNewPortfolio,
-        mappings: fieldMappings,
-        recordCount: validationResults.valid_records,
-        fileName: uploadedFile.name
-      });
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       toast({ 
         title: "Import Complete", 
-        description: `Successfully created portfolio "${portfolioName}" and imported ${validationResults.valid_records} accounts.` 
+        description: `Successfully ${isNewPortfolio ? 'created' : 'updated'} portfolio "${portfolioName}" and imported ${validationResults.valid_records} accounts.` 
       });
       
     } catch (error) {
@@ -230,25 +310,61 @@ export default function FileUploader({ isOpen, onClose, portfolios }) {
   };
 
   const generatePortfolioSummary = (validCount, invalidCount) => {
-    // Simulate portfolio analysis
+    // Analyze actual uploaded data
     const totalRecords = validationResults.total_records;
-    const uniqueAccounts = Math.floor(validCount * 0.98); // Some duplicates removed
-    const avgBalance = 2500 + Math.random() * 3000;
-    const avgPrincipleBalance = avgBalance * 0.85;
+    const uniqueAccounts = Math.floor(validCount * 0.98);
     
-    const topStates = [
-      { state: 'TX', accounts: Math.floor(uniqueAccounts * 0.25), value: Math.floor(uniqueAccounts * 0.25 * avgBalance), percentage: 25.0 },
-      { state: 'CA', accounts: Math.floor(uniqueAccounts * 0.20), value: Math.floor(uniqueAccounts * 0.20 * avgBalance), percentage: 20.0 },
-      { state: 'FL', accounts: Math.floor(uniqueAccounts * 0.15), value: Math.floor(uniqueAccounts * 0.15 * avgBalance), percentage: 15.0 },
-      { state: 'NY', accounts: Math.floor(uniqueAccounts * 0.12), value: Math.floor(uniqueAccounts * 0.12 * avgBalance), percentage: 12.0 },
-      { state: 'IL', accounts: Math.floor(uniqueAccounts * 0.10), value: Math.floor(uniqueAccounts * 0.10 * avgBalance), percentage: 10.0 }
-    ];
+    // Calculate actual averages from preview data
+    let avgBalance = 0;
+    let stateCount = {};
+    
+    if (previewData.length > 0) {
+      // Find balance field mapping
+      const balanceField = Object.keys(fieldMappings).find(key => 
+        fieldMappings[key] === 'current_balance' || fieldMappings[key] === 'original_balance'
+      );
+      
+      if (balanceField) {
+        const balances = previewData.map(row => parseFloat(row[balanceField]) || 0).filter(b => b > 0);
+        avgBalance = balances.length > 0 ? balances.reduce((a, b) => a + b, 0) / balances.length : 2500;
+      } else {
+        avgBalance = 2500; // Default if no balance field mapped
+      }
+      
+      // Find state field mapping
+      const stateField = Object.keys(fieldMappings).find(key => fieldMappings[key] === 'state');
+      if (stateField) {
+        previewData.forEach(row => {
+          const state = row[stateField];
+          if (state) {
+            stateCount[state] = (stateCount[state] || 0) + 1;
+          }
+        });
+      }
+    }
+    
+    // Generate top states from actual data or defaults
+    const topStates = Object.keys(stateCount).length > 0 
+      ? Object.entries(stateCount)
+          .map(([state, count]) => ({
+            state,
+            accounts: Math.floor((count / previewData.length) * uniqueAccounts),
+            value: Math.floor((count / previewData.length) * uniqueAccounts * avgBalance),
+            percentage: ((count / previewData.length) * 100).toFixed(1)
+          }))
+          .sort((a, b) => b.accounts - a.accounts)
+          .slice(0, 5)
+      : [
+          { state: 'Unknown', accounts: uniqueAccounts, value: Math.floor(uniqueAccounts * avgBalance), percentage: 100.0 }
+        ];
     
     const exceptions = {
       duplicateAccountNumbers: Math.floor(totalRecords * 0.02),
       duplicateSSN: Math.floor(totalRecords * 0.015),
       duplicateAccounts: Math.floor(totalRecords * 0.01)
     };
+    
+    const avgPrincipleBalance = avgBalance * 0.85;
     
     setPortfolioSummary({
       creditorName: 'Sample Creditor LLC',
@@ -308,8 +424,11 @@ export default function FileUploader({ isOpen, onClose, portfolios }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle className="text-primary">File Upload & Import</DialogTitle></DialogHeader>
+      <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-primary">File Upload & Import</DialogTitle>
+          <DialogDescription>Upload and import debt portfolio data from CSV files</DialogDescription>
+        </DialogHeader>
         
         {step === 1 && (
           <div className="space-y-6">
@@ -395,30 +514,40 @@ export default function FileUploader({ isOpen, onClose, portfolios }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {Object.keys(previewData[0] || {}).map((col, i) => (
-                    <TableRow key={col}>
-                      <TableCell className="font-medium">{col}</TableCell>
-                      <TableCell className="text-muted-foreground">{previewData[0][col]}</TableCell>
-                      <TableCell>
-                        <Select 
-                          value={fieldMappings[col] || ''} 
-                          onValueChange={v => setFieldMappings(p => ({ ...p, [col]: v }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select field" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="">-- Skip this column --</SelectItem>
-                            {availableFields.map(f => (
-                              <SelectItem key={f} value={f}>
-                                {f.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {Object.keys(previewData[0] || {}).map((col, i) => {
+                    const requiredFields = [
+                      'original_creditor', 'original_account_number', 'seller_account_number',
+                      'ssn', 'date_of_birth', 'first_name', 'last_name', 'address',
+                      'city', 'state', 'zip', 'phone', 'email', 'account_open_date',
+                      'current_balance', 'original_balance', 'delinquency_date', 'charge_off_date'
+                    ];
+                    
+                    return (
+                      <TableRow key={col}>
+                        <TableCell className="font-medium">{col}</TableCell>
+                        <TableCell className="text-muted-foreground">{previewData[0][col]}</TableCell>
+                        <TableCell>
+                          <Select 
+                            value={fieldMappings[col] || 'skip'} 
+                            onValueChange={v => setFieldMappings(p => ({ ...p, [col]: v === 'skip' ? undefined : v }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select field" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="skip">-- Skip this column --</SelectItem>
+                              {availableFields.map(f => (
+                                <SelectItem key={f} value={f}>
+                                  {f.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                  {requiredFields.includes(f) && <span className="text-red-500 ml-1">*</span>}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -470,7 +599,7 @@ export default function FileUploader({ isOpen, onClose, portfolios }) {
               </CardContent>
             </Card>
             
-            <div className="flex justify-between"><Button variant="outline" onClick={() => setStep(1)}>Back</Button><div className="flex gap-2"><Button onClick={validateMappings} disabled={Object.keys(fieldMappings).length === 0}>Next: Validate Data</Button></div></div>
+            <div className="flex justify-between"><Button variant="outline" onClick={() => setStep(1)}>Back</Button><div className="flex gap-2"><Button onClick={validateMappings}>Next: Validate Data</Button></div></div>
           </div>
         )}
         

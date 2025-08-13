@@ -12,6 +12,7 @@ import PaymentHistory from './PaymentHistory';
 import AccountNotes from './AccountNotes';
 import ActivityLog from './ActivityLog';
 import { User, DollarSign, Calendar, MapPin, Phone, Mail, Edit3, Save, X, AlertTriangle, Ban, Skull, FileText, History, ArrowLeft } from 'lucide-react';
+import { calculateTotalPaid, getLastPaymentDate } from '@/utils/mockPayments';
 
 export default function AccountProfile({ account, onBack, onUpdate, onStatusChange }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -31,6 +32,11 @@ export default function AccountProfile({ account, onBack, onUpdate, onStatusChan
   const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
   const formatDate = (date) => date ? new Date(date).toLocaleDateString() : 'N/A';
 
+  // Calculate total paid from actual payments
+  const actualTotalPaid = calculateTotalPaid(account.debtor_id);
+  const calculatedCurrentBalance = (account.original_balance || 0) - actualTotalPaid;
+  const actualLastPaymentDate = getLastPaymentDate(account.debtor_id);
+
   return (
     <div className="space-y-6">
       <Card>
@@ -45,16 +51,94 @@ export default function AccountProfile({ account, onBack, onUpdate, onStatusChan
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="space-y-6">
-          <Card><CardHeader><CardTitle>Financial Overview</CardTitle></CardHeader><CardContent className="space-y-4"><div className="flex items-center gap-3"><div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center"><DollarSign className="w-6 h-6 text-primary" /></div><div><p className="text-2xl font-bold">{formatCurrency(account.current_balance)}</p><p className="text-sm text-muted-foreground">Current Balance</p></div></div><div className="flex items-center gap-3"><div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center"><Calendar className="w-6 h-6 text-primary" /></div><div><p className="text-lg font-bold">{formatDate(account.charge_off_date)}</p><p className="text-sm text-muted-foreground">Charge Off Date</p></div></div></CardContent></Card>
-          <Card><CardHeader><CardTitle>Contact Information</CardTitle></CardHeader><CardContent className="space-y-3"><div className="flex items-center gap-2"><Phone className="w-4 h-4 text-muted-foreground" /><span>{account.debtor_info?.phone || 'N/A'}</span></div><div className="flex items-center gap-2"><Mail className="w-4 h-4 text-muted-foreground" /><span>{account.debtor_info?.email || 'N/A'}</span></div></CardContent></Card>
-        </div>
-
-        <div className="lg:col-span-2">
-          <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-4"><TabsTrigger value="profile"><User className="w-4 h-4 mr-2"/>Profile</TabsTrigger><TabsTrigger value="payments"><DollarSign className="w-4 h-4 mr-2"/>Payments</TabsTrigger><TabsTrigger value="notes"><FileText className="w-4 h-4 mr-2"/>Notes</TabsTrigger><TabsTrigger value="activity"><History className="w-4 h-4 mr-2"/>Activity</TabsTrigger></TabsList>
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-4"><TabsTrigger value="profile"><User className="w-4 h-4 mr-2"/>Profile</TabsTrigger><TabsTrigger value="payments"><DollarSign className="w-4 h-4 mr-2"/>Payments</TabsTrigger><TabsTrigger value="notes"><FileText className="w-4 h-4 mr-2"/>Notes</TabsTrigger><TabsTrigger value="activity"><History className="w-4 h-4 mr-2"/>Activity</TabsTrigger></TabsList>
             <TabsContent value="profile" className="mt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* Account Information */}
+                <Card>
+                  <CardHeader><CardTitle>Account Information</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="font-medium">Debtor ID:</span>
+                        <span>{account.debtor_id}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">BEAM ID:</span>
+                        <span>{account.beam_id || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Original Account:</span>
+                        <span>{account.original_account_number || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Issuer Account:</span>
+                        <span>{account.issuer_account_number || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Seller Account:</span>
+                        <span>{account.seller_account_number || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Original Creditor:</span>
+                        <span>{account.original_creditor || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Status:</span>
+                        <Badge className={getStatusColor(account.status)}>
+                          {account.status?.replace(/_/g, ' ')}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Portfolio:</span>
+                        <span>{account.portfolio_id || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Balance Information */}
+                <Card>
+                  <CardHeader><CardTitle>Balance Information</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="font-medium">Current Balance:</span>
+                        <span className="font-semibold text-primary">{formatCurrency(calculatedCurrentBalance)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Original Balance:</span>
+                        <span>{formatCurrency(account.original_balance || 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Charge Off Amount:</span>
+                        <span>{formatCurrency(account.charge_off_amount || 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Total Paid:</span>
+                        <span>{formatCurrency(actualTotalPaid)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Account Open Date:</span>
+                        <span>{formatDate(account.account_open_date)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Charge Off Date:</span>
+                        <span>{formatDate(account.charge_off_date)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Delinquency Date:</span>
+                        <span>{formatDate(account.delinquency_date)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Last Payment:</span>
+                        <span>{actualLastPaymentDate ? formatDate(actualLastPaymentDate) : 'N/A'}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
               <Card><CardHeader><CardTitle className="text-primary">Debtor Profile Details</CardTitle></CardHeader><CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -169,12 +253,10 @@ export default function AccountProfile({ account, onBack, onUpdate, onStatusChan
                 </div>
               </CardContent></Card>
             </TabsContent>
-            <TabsContent value="payments" className="mt-6"><PaymentHistory debtorId={account.debtor_id} /></TabsContent>
-            <TabsContent value="notes" className="mt-6"><AccountNotes debtorId={account.debtor_id} /></TabsContent>
-            <TabsContent value="activity" className="mt-6"><ActivityLog debtorId={account.debtor_id} /></TabsContent>
-          </Tabs>
-        </div>
-      </div>
+        <TabsContent value="payments" className="mt-6"><PaymentHistory debtorId={account.debtor_id} /></TabsContent>
+        <TabsContent value="notes" className="mt-6"><AccountNotes debtorId={account.debtor_id} /></TabsContent>
+        <TabsContent value="activity" className="mt-6"><ActivityLog debtorId={account.debtor_id} /></TabsContent>
+      </Tabs>
     </div>
   );
 }
