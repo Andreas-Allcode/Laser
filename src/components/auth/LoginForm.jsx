@@ -84,6 +84,28 @@ export const LoginForm = ({ onToggleMode }) => {
             </button>
           </div>
         </form>
+        
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
+          <p className="text-xs text-gray-600 mb-2">Quick Test Login:</p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full text-xs"
+            onClick={async () => {
+              setLoading(true)
+              setError('')
+              const { error } = await signIn('testing@ccai.com', 'testadmin123')
+              if (error) {
+                setError(error.message)
+              }
+              setLoading(false)
+            }}
+            disabled={loading}
+          >
+            {loading && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+            Login as Test User
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )

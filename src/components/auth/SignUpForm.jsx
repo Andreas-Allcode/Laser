@@ -13,14 +13,14 @@ export const SignUpForm = ({ onToggleMode }) => {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
+
   const { signUp } = useAuth()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-    setSuccess(false)
+
 
     if (password !== confirmPassword) {
       setError('Passwords do not match')
@@ -34,34 +34,17 @@ export const SignUpForm = ({ onToggleMode }) => {
       return
     }
 
-    const { error } = await signUp(email, password)
+    const { data, error } = await signUp(email, password)
     
     if (error) {
       setError(error.message)
-    } else {
-      setSuccess(true)
     }
+    // If successful, the AuthProvider will handle the automatic sign-in and redirect
     
     setLoading(false)
   }
 
-  if (success) {
-    return (
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
-          <CardDescription>
-            We've sent you a confirmation link at {email}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={onToggleMode} variant="outline" className="w-full">
-            Back to Sign In
-          </Button>
-        </CardContent>
-      </Card>
-    )
-  }
+
 
   return (
     <Card className="w-full max-w-md">
