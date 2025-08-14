@@ -12,6 +12,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Check, ChevronsUpDown } from 'lucide-react';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -39,6 +53,57 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { portfolioStorage } from '@/utils/portfolioStorage';
 
+// Searchable Select Component
+function SearchableSelect({ value, onValueChange, options, placeholder, className }) {
+  const [open, setOpen] = React.useState(false);
+  
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={`justify-between ${className}`}
+        >
+          {value && value !== 'none' 
+            ? options.find(option => option.value === value)?.label || value
+            : placeholder
+          }
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0">
+        <Command>
+          <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} />
+          <CommandList>
+            <CommandEmpty>No options found.</CommandEmpty>
+            <CommandGroup>
+              {options.map(option => (
+                <CommandItem
+                  key={option.value}
+                  value={option.value}
+                  onSelect={() => {
+                    onValueChange(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={`mr-2 h-4 w-4 ${
+                      value === option.value ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioCreated }) {
   const [step, setStep] = useState(1);
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -50,31 +115,47 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
   const [previewData, setPreviewData] = useState([]);
   const [validationResults, setValidationResults] = useState(null);
   const [portfolioSummary, setPortfolioSummary] = useState(null);
+  const [additionalFields, setAdditionalFields] = useState([]);
+  const [removedFields, setRemovedFields] = useState([]);
   const fileInputRef = useRef(null);
   const { toast } = useToast();
 
-  const availableFields = [
-    // Account Identifiers
-    'debtor_id', 'beam_id', 'original_account_number', 'issuer_account_number', 'seller_account_number',
-    
-    // Creditor Information
-    'original_creditor',
-    
-    // Personal Information
-    'first_name', 'last_name', 'ssn', 'date_of_birth',
-    
-    // Contact Information
-    'address', 'address2', 'city', 'state', 'zip', 'phone', 'email',
-    
-    // Employment & Demographics
-    'employer', 'homeowner', 'score_recovery_bankcard', 'score_recovery_retail',
-    
-    // Financial Information
-    'current_balance', 'original_balance', 'total_amount_due', 'principle_balance', 
-    'charge_off_amount', 'total_paid', 'interest_rate',
-    
-    // Important Dates
-    'account_open_date', 'charge_off_date', 'delinquency_date', 'last_payment_date'
+  const requiredFields = [
+    { field: 'original_creditor', label: 'Original Creditor Name' },
+    { field: 'original_account_number', label: 'Original Account Number' },
+    { field: 'seller_account_number', label: 'Seller Account Number' },
+    { field: 'ssn', label: 'Social Security Number' },
+    { field: 'date_of_birth', label: 'Date of Birth' },
+    { field: 'first_name', label: 'First Name' },
+    { field: 'last_name', label: 'Last Name' },
+    { field: 'address', label: 'Address (Line 1)' },
+    { field: 'city', label: 'City' },
+    { field: 'state', label: 'State' },
+    { field: 'zip', label: 'Zip' },
+    { field: 'phone', label: 'Primary Phone' },
+    { field: 'email', label: 'Email Address' },
+    { field: 'account_open_date', label: 'Account Open Date' },
+    { field: 'total_amount_due', label: 'Total Amount Due' },
+    { field: 'interest_rate', label: 'Interest Rate' },
+    { field: 'principle_balance', label: 'Principle Balance' },
+    { field: 'last_payment_date', label: 'Last Payment Date' },
+    { field: 'delinquency_date', label: 'Delinquency Date' },
+    { field: 'charge_off_date', label: 'Charge Off Date' }
+  ];
+  
+  const optionalFields = [
+    { field: 'debtor_id', label: 'Debtor ID' },
+    { field: 'beam_id', label: 'BEAM ID' },
+    { field: 'issuer_account_number', label: 'Issuer Account Number' },
+    { field: 'address2', label: 'Address Line 2' },
+    { field: 'employer', label: 'Employer' },
+    { field: 'homeowner', label: 'Homeowner Status' },
+    { field: 'score_recovery_bankcard', label: 'Recovery Score - Bankcard' },
+    { field: 'score_recovery_retail', label: 'Recovery Score - Retail' },
+    { field: 'current_balance', label: 'Current Balance' },
+    { field: 'original_balance', label: 'Original Balance' },
+    { field: 'charge_off_amount', label: 'Charge Off Amount' },
+    { field: 'total_paid', label: 'Total Paid' }
   ];
   
   const mediaFileFieldOptions = [
@@ -87,6 +168,77 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
     { value: 'first_name', label: 'First Name' },
     { value: 'last_name', label: 'Last Name' }
   ];
+
+  // Auto-mapping function with best-fit logic and no duplicates
+  const autoMapFields = (headers) => {
+    const mappings = {};
+    const usedFields = new Set();
+    
+    // Required fields with priority patterns (most specific first)
+    const fieldPatterns = {
+      'original_creditor': ['original creditor name', 'original_creditor', 'original creditor', 'creditor name', 'creditor'],
+      'original_account_number': ['original account number', 'original_account_number', 'orig_acct_num', 'original_acct', 'account_number', 'acct_num'],
+      'seller_account_number': ['seller account number', 'seller_account_number', 'seller_acct'],
+      'ssn': ['social security number', 'ssn', 'social_security_number', 'social'],
+      'date_of_birth': ['date of birth', 'date_of_birth', 'dob', 'birth_date', 'birthdate'],
+      'first_name': ['first name', 'first_name', 'fname', 'firstname'],
+      'last_name': ['last name', 'last_name', 'lname', 'lastname', 'surname'],
+      'address': ['address (line 1)', 'address', 'address1', 'street', 'street_address'],
+      'city': ['city'],
+      'state': ['state', 'st'],
+      'zip': ['zip', 'zipcode', 'zip_code', 'postal_code'],
+      'phone': ['primary phone', 'phone', 'phone_number', 'telephone', 'tel'],
+      'email': ['email address', 'email', 'email_address', 'e_mail'],
+      'account_open_date': ['account open date', 'account_open_date', 'open_date', 'opened'],
+      'total_amount_due': ['total amount due', 'total_amount_due', 'amount_due', 'balance', 'current_balance'],
+      'interest_rate': ['interest rate', 'interest_rate', 'rate'],
+      'principle_balance': ['principle balance', 'principal balance', 'principle_balance', 'principal_balance', 'principal', 'principle'],
+      'last_payment_date': ['last payment date', 'last_payment_date', 'last_pay_date'],
+      'delinquency_date': ['delinquency date', 'delinquency_date', 'delinq_date'],
+      'charge_off_date': ['charge off date', 'charge_off_date', 'chargeoff_date']
+    };
+    
+    // Calculate match scores for all header-field combinations
+    const matches = [];
+    headers.forEach(header => {
+      const normalizedHeader = header.toLowerCase().trim();
+      
+      Object.entries(fieldPatterns).forEach(([field, patterns]) => {
+        patterns.forEach((pattern, patternIndex) => {
+          let score = 0;
+          
+          // Exact match gets highest score
+          if (normalizedHeader === pattern) {
+            score = 1000 - patternIndex; // Higher score for earlier patterns
+          }
+          // Contains match
+          else if (normalizedHeader.includes(pattern)) {
+            score = 500 - patternIndex - (normalizedHeader.length - pattern.length);
+          }
+          // Pattern contains header (for shorter headers)
+          else if (pattern.includes(normalizedHeader) && normalizedHeader.length > 2) {
+            score = 300 - patternIndex;
+          }
+          
+          if (score > 0) {
+            matches.push({ header, field, score });
+          }
+        });
+      });
+    });
+    
+    // Sort by score (highest first) and assign best matches without duplicates
+    matches.sort((a, b) => b.score - a.score);
+    
+    matches.forEach(match => {
+      if (!mappings[match.header] && !usedFields.has(match.field)) {
+        mappings[match.header] = match.field;
+        usedFields.add(match.field);
+      }
+    });
+    
+    return mappings;
+  };
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -155,6 +307,15 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
         return row;
       });
       
+      // Auto-map fields based on header names
+      const autoMappings = autoMapFields(headers);
+      setFieldMappings(autoMappings);
+      
+      // Find unmapped headers for additional fields
+      const mappedHeaders = Object.keys(autoMappings);
+      const unmappedHeaders = headers.filter(h => !mappedHeaders.includes(h));
+      setAdditionalFields(unmappedHeaders.slice(0, 3).map(header => ({ header, field: '' })));
+      
       setPreviewData(rows);
       setValidationResults({
         total_records: lines.length - 1, // Subtract header row
@@ -164,7 +325,11 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
         warnings: []
       });
       
-      toast({ title: "File Uploaded", description: `${file.name} has been successfully uploaded. Found ${headers.length} columns and ${lines.length - 1} records.` });
+      const mappedCount = Object.keys(autoMappings).length;
+      toast({ 
+        title: "File Uploaded", 
+        description: `${file.name} uploaded successfully. Found ${headers.length} columns, ${lines.length - 1} records. Auto-mapped ${mappedCount} fields.` 
+      });
     };
     
     reader.onerror = () => {
@@ -187,27 +352,9 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
     }
     
     // Validate required fields
-    const requiredFields = [
-      'original_creditor',
-      'original_account_number', 
-      'seller_account_number',
-      'ssn',
-      'date_of_birth',
-      'first_name',
-      'last_name',
-      'address',
-      'city',
-      'state',
-      'zip',
-      'phone',
-      'email',
-      'account_open_date',
-      'current_balance',
-      'original_balance',
-      'delinquency_date',
-      'charge_off_date'
-    ];
-    const missingRequired = requiredFields.filter(field => !mappedFields.includes(field));
+    const requiredFieldsList = requiredFields.map(f => f.field);
+    const activeRequiredFields = requiredFieldsList.filter(field => !removedFields.includes(field));
+    const missingRequired = activeRequiredFields.filter(field => !mappedFields.includes(field));
     
     const errors = [];
     const warnings = [];
@@ -219,6 +366,10 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
         variant: "destructive" 
       });
       return;
+    }
+    
+    if (removedFields.length > 0) {
+      warnings.push(`${removedFields.length} required fields were removed from import`);
     }
     
     // Simulate validation of sample data
@@ -419,6 +570,8 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
     setPreviewData([]); 
     setValidationResults(null);
     setPortfolioSummary(null);
+    setAdditionalFields([]);
+    setRemovedFields([]);
   };
   const handleClose = () => { resetUploader(); onClose(); };
 
@@ -498,58 +651,247 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
 
         {step === 2 && (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-xl font-semibold">Map File Columns to Database Fields</h3>
-              <p className="text-muted-foreground">
-                {isNewPortfolio ? `Creating new portfolio: ${newPortfolioName}` : `Adding to portfolio: ${portfolios.find(p => p.id === selectedPortfolio)?.name}`}
-              </p>
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-xl font-semibold">Map File Columns to Database Fields</h3>
+                <p className="text-muted-foreground">
+                  {isNewPortfolio ? `Creating new portfolio: ${newPortfolioName}` : `Adding to portfolio: ${portfolios.find(p => p.id === selectedPortfolio)?.name}`}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const autoMappings = autoMapFields(Object.keys(previewData[0] || {}));
+                    setFieldMappings(autoMappings);
+                    const mappedCount = Object.keys(autoMappings).length;
+                    toast({ title: "Auto-mapping Applied", description: `${mappedCount} fields have been auto-mapped.` });
+                  }}
+                >
+                  Re-apply Auto-mapping
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setFieldMappings({});
+                    toast({ title: "Mappings Cleared", description: "All field mappings have been cleared." });
+                  }}
+                >
+                  Clear All
+                </Button>
+              </div>
             </div>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>File Column</TableHead>
-                    <TableHead>Sample Data</TableHead>
-                    <TableHead>Map to Field</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {Object.keys(previewData[0] || {}).map((col, i) => {
-                    const requiredFields = [
-                      'original_creditor', 'original_account_number', 'seller_account_number',
-                      'ssn', 'date_of_birth', 'first_name', 'last_name', 'address',
-                      'city', 'state', 'zip', 'phone', 'email', 'account_open_date',
-                      'current_balance', 'original_balance', 'delinquency_date', 'charge_off_date'
-                    ];
+            
+            {/* Auto-mapping Summary */}
+            {Object.keys(fieldMappings).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Mapping Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm space-y-1">
+                    <p><strong>Total mapped fields:</strong> {Object.values(fieldMappings).filter(v => v && v !== 'skip').length}</p>
+                    <p><strong>Required fields mapped:</strong> {requiredFields.filter(f => Object.values(fieldMappings).includes(f.field) && !removedFields.includes(f.field)).length}/{requiredFields.length - removedFields.length}</p>
+                    <p><strong>Fields removed:</strong> {removedFields.length}/3</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Required Fields */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-red-600">Required Fields *</CardTitle>
+                  <p className="text-sm text-muted-foreground">All fields must be mapped</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {requiredFields.map(({ field, label }) => {
+                    const mappedHeader = Object.keys(fieldMappings).find(header => fieldMappings[header] === field);
+                    const isAutoMapped = !!mappedHeader;
+                    const isRemoved = removedFields.includes(field);
+                    
+                    if (isRemoved) return null;
                     
                     return (
-                      <TableRow key={col}>
-                        <TableCell className="font-medium">{col}</TableCell>
-                        <TableCell className="text-muted-foreground">{previewData[0][col]}</TableCell>
-                        <TableCell>
-                          <Select 
-                            value={fieldMappings[col] || 'skip'} 
-                            onValueChange={v => setFieldMappings(p => ({ ...p, [col]: v === 'skip' ? undefined : v }))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select field" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="skip">-- Skip this column --</SelectItem>
-                              {availableFields.map(f => (
-                                <SelectItem key={f} value={f}>
-                                  {f.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                  {requiredFields.includes(f) && <span className="text-red-500 ml-1">*</span>}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                      </TableRow>
+                      <div key={field} className="flex items-center gap-2 p-2 border rounded">
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{label}</div>
+                          {mappedHeader && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Mapped to: {mappedHeader}
+                              {isAutoMapped && <Badge variant="secondary" className="ml-2 text-xs bg-green-100 text-green-700">Auto</Badge>}
+                            </div>
+                          )}
+                        </div>
+                        <SearchableSelect
+                          value={mappedHeader || 'none'}
+                          onValueChange={v => {
+                            const newMappings = { ...fieldMappings };
+                            // Remove old mapping
+                            if (mappedHeader) delete newMappings[mappedHeader];
+                            // Add new mapping
+                            if (v !== 'none') newMappings[v] = field;
+                            setFieldMappings(newMappings);
+                          }}
+                          options={[
+                            { value: 'none', label: '-- Not mapped --' },
+                            ...Object.keys(previewData[0] || {})
+                              .sort()
+                              .map(header => ({ value: header, label: header }))
+                          ]}
+                          placeholder="Select column"
+                          className={`w-48 ${isAutoMapped ? 'border-green-300' : !mappedHeader ? 'border-red-300' : ''}`}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (removedFields.length < 3) {
+                              setRemovedFields(prev => [...prev, field]);
+                              // Remove from field mappings
+                              if (mappedHeader) {
+                                setFieldMappings(prev => {
+                                  const newMappings = { ...prev };
+                                  delete newMappings[mappedHeader];
+                                  return newMappings;
+                                });
+                              }
+                            }
+                          }}
+                          disabled={removedFields.length >= 3}
+                          className="h-8 w-8 text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
                     );
-                  })}
-                </TableBody>
-              </Table>
+                  }).filter(Boolean)
+                  }
+                  
+                  {removedFields.length > 0 && (
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <div className="text-sm font-medium text-yellow-800 mb-2">
+                        Removed Fields ({removedFields.length}/3):
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {removedFields.map(field => {
+                          const fieldInfo = requiredFields.find(f => f.field === field);
+                          return (
+                            <Badge key={field} variant="secondary" className="bg-yellow-100 text-yellow-800">
+                              {fieldInfo?.label}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setRemovedFields(prev => prev.filter(f => f !== field));
+                                }}
+                                className="ml-1 h-4 w-4 p-0 hover:bg-yellow-200"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setAdditionalFields(prev => [...prev, { header: '', field: '' }])}
+                    className="w-full mt-4"
+                  >
+                    Add More Fields
+                  </Button>
+                </CardContent>
+              </Card>
+              
+              {/* Optional/Additional Fields */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Optional Fields</CardTitle>
+                  <p className="text-sm text-muted-foreground">Additional fields you can map</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {additionalFields.map((item, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 border rounded">
+                      <SearchableSelect
+                        value={item.header || 'none'}
+                        onValueChange={v => {
+                          const newAdditional = [...additionalFields];
+                          newAdditional[index] = { ...item, header: v === 'none' ? '' : v };
+                          setAdditionalFields(newAdditional);
+                          
+                          // Update field mappings
+                          if (item.field && v !== 'none') {
+                            setFieldMappings(prev => ({ ...prev, [v]: item.field }));
+                          }
+                        }}
+                        options={[
+                          { value: 'none', label: '-- Select column --' },
+                          ...Object.keys(previewData[0] || {})
+                            .filter(header => !Object.keys(fieldMappings).includes(header) || header === item.header)
+                            .sort()
+                            .map(header => ({ value: header, label: header }))
+                        ]}
+                        placeholder="Select column"
+                        className="flex-1"
+                      />
+                      
+                      <SearchableSelect
+                        value={item.field || 'none'}
+                        onValueChange={v => {
+                          const newAdditional = [...additionalFields];
+                          newAdditional[index] = { ...item, field: v === 'none' ? '' : v };
+                          setAdditionalFields(newAdditional);
+                          
+                          // Update field mappings
+                          if (item.header && v !== 'none') {
+                            setFieldMappings(prev => ({ ...prev, [item.header]: v }));
+                          }
+                        }}
+                        options={[
+                          { value: 'none', label: '-- Select field --' },
+                          ...optionalFields
+                            .sort((a, b) => a.label.localeCompare(b.label))
+                            .map(({ field, label }) => ({ value: field, label }))
+                        ]}
+                        placeholder="Map to field"
+                        className="flex-1"
+                      />
+                      
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => {
+                          const newAdditional = additionalFields.filter((_, i) => i !== index);
+                          setAdditionalFields(newAdditional);
+                          
+                          // Remove from field mappings
+                          if (item.header) {
+                            setFieldMappings(prev => {
+                              const newMappings = { ...prev };
+                              delete newMappings[item.header];
+                              return newMappings;
+                            });
+                          }
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  {additionalFields.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No additional fields added
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
             
             {/* Media File Field Selection */}
@@ -599,7 +941,12 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
               </CardContent>
             </Card>
             
-            <div className="flex justify-between"><Button variant="outline" onClick={() => setStep(1)}>Back</Button><div className="flex gap-2"><Button onClick={validateMappings}>Next: Validate Data</Button></div></div>
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+              <div className="flex gap-2">
+                <Button onClick={validateMappings}>Next: Validate Data</Button>
+              </div>
+            </div>
           </div>
         )}
         
