@@ -76,21 +76,22 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signOut = async () => {
-    // For mock sessions (test user or post-signup), just clear the user state
+    // Always clear user state first
+    setUser(null)
+    
+    // For mock sessions, don't attempt Supabase logout
     if (user && (user.id === 'test-user-id' || !user.aud)) {
-      setUser(null)
       return { error: null }
     }
     
-    // For real Supabase sessions, attempt logout
+    // For real sessions, try Supabase logout but ignore errors
     try {
-      const { error } = await supabase.auth.signOut()
-      return { error }
+      await supabase.auth.signOut()
     } catch (err) {
-      // If logout fails, still clear the user state locally
-      setUser(null)
-      return { error: null }
+      console.log('Supabase logout failed, but user cleared locally:', err)
     }
+    
+    return { error: null }
   }
 
   const value = {
