@@ -14,19 +14,23 @@ export const accountStorage = {
             debtor_info: account.debtor_info || {},
             current_balance: Number(account.total_amount_due || account.current_balance || 0),
             original_balance: Number(account.original_balance || account.total_amount_due || 0),
-            status: account.status || 'active_internal'
+            status: account.status || 'active_internal',
+            total_paid: 0,
+            last_payment_amount: 0
           };
           
-          // Only add optional fields if they have valid values
-          if (account.principle_balance) cleanDebtData.principle_balance = Number(account.principle_balance);
-          if (account.interest_rate) cleanDebtData.interest_rate = Number(account.interest_rate);
+          // Only add fields that exist in the Supabase schema
           if (account.original_creditor) cleanDebtData.original_creditor = account.original_creditor;
           if (account.original_account_number) cleanDebtData.original_account_number = account.original_account_number;
           if (account.seller_account_number) cleanDebtData.seller_account_number = account.seller_account_number;
+          if (account.beam_id) cleanDebtData.beam_id = account.beam_id;
+          if (account.issuer_account_number) cleanDebtData.issuer_account_number = account.issuer_account_number;
           if (account.account_open_date) cleanDebtData.account_open_date = account.account_open_date;
           if (account.charge_off_date) cleanDebtData.charge_off_date = account.charge_off_date;
           if (account.delinquency_date) cleanDebtData.delinquency_date = account.delinquency_date;
           if (account.last_payment_date) cleanDebtData.last_payment_date = account.last_payment_date;
+          if (account.charge_off_amount) cleanDebtData.charge_off_amount = Number(account.charge_off_amount);
+          if (account.placement_date) cleanDebtData.placement_date = account.placement_date;
           
           return cleanDebtData;
         });
