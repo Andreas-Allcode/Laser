@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { Target, Search, BarChart3 } from 'lucide-react';
+import { Target, Search, BarChart3, Trash2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import { portfolioStorage } from '@/utils/portfolioStorage';
 
 import SearchFilters from '../components/command-center/SearchFilters';
 import PreviewResults from '../components/command-center/PreviewResults';
@@ -97,6 +98,7 @@ export default function CommandCenter() {
   const [totalCount, setTotalCount] = useState(0);
   const [activeTab, setActiveTab] = useState('search');
   const [selectedDebt, setSelectedDebt] = useState(null);
+  const [cleaningUp, setCleaningUp] = useState(false);
   
   const { toast } = useToast();
 
@@ -106,10 +108,13 @@ export default function CommandCenter() {
   };
   
   const generateMockSearchResults = (currentFilters = [], page = 1, pageSize = 50) => {
-    let filteredData = [...ALL_MOCK_DEBTS];
+    // Load real debts from localStorage instead of mock data
+    const realDebts = JSON.parse(localStorage.getItem('debts') || '[]');
+    let filteredData = realDebts.length > 0 ? [...realDebts] : [...ALL_MOCK_DEBTS];
 
     if (currentFilters.length > 0) {
-        filteredData = ALL_MOCK_DEBTS.filter(debt => {
+        const dataSource = realDebts.length > 0 ? realDebts : ALL_MOCK_DEBTS;
+        filteredData = dataSource.filter(debt => {
             return currentFilters.every(filter => {
                 const { field, operator, value } = filter;
                 if (!field || !operator || value === undefined || value === '') return true;
@@ -254,7 +259,7 @@ export default function CommandCenter() {
   };
 
   useEffect(() => {
-    // Load initial sample data on page load
+    // Load initial data on page load (real debts if available, otherwise mock)
     const { results, total, fullResults } = generateMockSearchResults([], 1);
     setSearchResults(results);
     setTotalCount(total);
@@ -440,6 +445,38 @@ export default function CommandCenter() {
     setSelectedDebt(null);
   };
 
+  const handleCleanupOrphanedDebts = async () => {
+    setCleaningUp(true);
+    try {
+      const deletedCount = await portfolioStorage.cleanupOrphanedDebts();
+      
+      // Refresh the search results to show updated data
+      const { results, total, fullResults } = generateMockSearchResults(filters, 1);
+      setSearchResults(results);
+      setTotalCount(total);
+      setCurrentPage(1);
+      
+      // Update summary data
+      const summary = generateMockSummaryData(fullResults);
+      setSummaryData(summary);
+      
+      toast({
+        title: "Cleanup Complete",
+        description: `Removed ${deletedCount} orphaned debt records.`,
+        variant: deletedCount > 0 ? "default" : "secondary"
+      });
+    } catch (error) {
+      console.error('Error cleaning up orphaned debts:', error);
+      toast({
+        title: "Cleanup Failed",
+        description: "Failed to clean up orphaned debts.",
+        variant: "destructive"
+      });
+    } finally {
+      setCleaningUp(false);
+    }
+  };
+
   // Show Debt Details if a debt is selected
   if (selectedDebt) {
     return (
@@ -452,14 +489,25 @@ export default function CommandCenter() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 bg-primary/10 flex items-center justify-center rounded-lg">
-          <Target className="w-8 h-8 text-primary"/>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-primary/10 flex items-center justify-center rounded-lg">
+            <Target className="w-8 h-8 text-primary"/>
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-primary">Command Center</h1>
+            <p className="text-muted-foreground mt-1">Advanced debt search and management operations</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold text-primary">Command Center</h1>
-          <p className="text-muted-foreground mt-1">Advanced debt search and management operations</p>
-        </div>
+        <Button 
+          variant="outline" 
+          onClick={handleCleanupOrphanedDebts}
+          disabled={cleaningUp}
+          className="text-red-600 hover:text-red-700"
+        >
+          <Trash2 className="w-4 h-4 mr-2" />
+          {cleaningUp ? 'Cleaning...' : 'Clean Orphaned Debts'}
+        </Button>
       </div>
 
       <div className="flex flex-col space-y-6 p-6 bg-background border border-border rounded-lg">

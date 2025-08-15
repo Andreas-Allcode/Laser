@@ -33,21 +33,31 @@ export default function AccountSearch({ onAccountSelect }) {
   const [creatingData, setCreatingData] = useState(false);
   const [syncingData, setSyncingData] = useState(false);
 
-  // Check if there's any data in the database
+  // Check if there's any data in the database or localStorage
   useEffect(() => {
     const checkForData = async () => {
       try {
-        const { data, error } = await supabase
-          .from('debts')
-          .select('id')
-          .limit(1);
+        const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
         
-        if (error) {
-          console.error('Error checking for data:', error);
-          setHasData(false);
+        if (isProduction) {
+          const { data, error } = await supabase
+            .from('debts')
+            .select('id')
+            .limit(1);
+          
+          if (error) {
+            console.error('Error checking for data:', error);
+            setHasData(false);
+          } else {
+            const hasDataResult = data && data.length > 0;
+            console.log('Supabase data check result:', { data, hasDataResult });
+            setHasData(hasDataResult);
+          }
         } else {
-          const hasDataResult = data && data.length > 0;
-          console.log('Data check result:', { data, hasDataResult });
+          // Check localStorage in development
+          const localDebts = JSON.parse(localStorage.getItem('debts') || '[]');
+          const hasDataResult = localDebts.length > 0;
+          console.log('LocalStorage data check result:', { count: localDebts.length, hasDataResult });
           setHasData(hasDataResult);
         }
       } catch (error) {
@@ -98,65 +108,118 @@ export default function AccountSearch({ onAccountSelect }) {
 
   useEffect(() => {
     const searchDebts = async () => {
-      // Load all debtors if no search value, otherwise filter
-
       setLoading(true);
       try {
-        let query = supabase.from('debts').select('*');
+        let data = [];
+        const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
         
-        // Apply filters only if there's a search value
-        if (searchValue.trim() !== '') {
-          if (searchType === 'debtor_id') {
-            query = query.ilike('debtor_id', `%${searchValue}%`);
-          } else if (searchType === 'name') {
-            const nameTerms = searchValue.trim().split(/\s+/);
-            if (nameTerms.length === 1) {
-              query = query.or(`debtor_info->>first_name.ilike.%${searchValue}%,debtor_info->>last_name.ilike.%${searchValue}%`);
-            } else {
-              const firstName = nameTerms[0];
-              const lastName = nameTerms.slice(1).join(' ');
-              query = query.and(`debtor_info->>first_name.ilike.%${firstName}%,debtor_info->>last_name.ilike.%${lastName}%`);
-            }
-          } else if (searchType === 'phone') {
-            const cleanPhone = searchValue.replace(/\D/g, '');
-            query = query.ilike('debtor_info->>phone', `%${cleanPhone}%`);
-          } else if (searchType === 'address') {
-            query = query.ilike('debtor_info->>address', `%${searchValue}%`);
-          } else if (searchType === 'homeowner') {
-            const isHomeowner = searchValue.toLowerCase().includes('yes') || searchValue.toLowerCase().includes('true') || searchValue.toLowerCase().includes('owner');
-            query = query.eq('debtor_info->>homeowner', isHomeowner);
-          }
-        }
-        
-        const { data, error } = await query.limit(200);
-        
-        if (error) {
-          console.error('Search error:', error);
-          setSearchResults([]);
-        } else {
-          // Group debts by debtor_id to show unique debtors
-          const debtorMap = new Map();
-          (data || []).forEach(debt => {
-            const debtorId = debt.debtor_id;
-            if (!debtorMap.has(debtorId)) {
-              debtorMap.set(debtorId, {
-                ...debt,
-                total_balance: debt.current_balance,
-                debt_count: 1,
-                debts: [debt]
-              });
-            } else {
-              const existing = debtorMap.get(debtorId);
-              existing.total_balance += debt.current_balance;
-              existing.debt_count += 1;
-              existing.debts.push(debt);
-            }
-          });
+        if (isProduction) {
+          // Load from Supabase in production
+          let query = supabase.from('debts').select('*');
           
-          const uniqueDebtors = Array.from(debtorMap.values()).slice(0, 50);
-          console.log('Grouped debtors:', uniqueDebtors);
-          setSearchResults(uniqueDebtors);
+          // Apply filters only if there's a search value
+          if (searchValue.trim() !== '') {
+            if (searchType === 'debtor_id') {
+              query = query.ilike('debtor_id', `%${searchValue}%`);
+            } else if (searchType === 'name') {
+              const nameTerms = searchValue.trim().split(/\s+/);
+              if (nameTerms.length === 1) {
+                query = query.or(`debtor_info->>first_name.ilike.%${searchValue}%,debtor_info->>last_name.ilike.%${searchValue}%`);
+              } else {
+                const firstName = nameTerms[0];
+                const lastName = nameTerms.slice(1).join(' ');
+                query = query.and(`debtor_info->>first_name.ilike.%${firstName}%,debtor_info->>last_name.ilike.%${lastName}%`);
+              }
+            } else if (searchType === 'phone') {
+              const cleanPhone = searchValue.replace(/\D/g, '');
+              query = query.ilike('debtor_info->>phone', `%${cleanPhone}%`);
+            } else if (searchType === 'address') {
+              query = query.ilike('debtor_info->>address', `%${searchValue}%`);
+            } else if (searchType === 'homeowner') {
+              const isHomeowner = searchValue.toLowerCase().includes('yes') || searchValue.toLowerCase().includes('true') || searchValue.toLowerCase().includes('owner');
+              query = query.eq('debtor_info->>homeowner', isHomeowner);
+            }
+          }
+          
+          const { data: supabaseData, error } = await query.limit(200);
+          if (error) {
+            console.error('Supabase search error:', error);
+            data = [];
+          } else {
+            data = supabaseData || [];
+          }
+        } else {
+          // Load from localStorage in development
+          const localDebts = JSON.parse(localStorage.getItem('debts') || '[]');
+          const portfolios = JSON.parse(localStorage.getItem('portfolios') || '[]');
+          const validPortfolioIds = new Set(portfolios.map(p => p.id));
+          
+          // Only include debts that have valid portfolios
+          const validDebts = localDebts.filter(debt => validPortfolioIds.has(debt.portfolio_id));
+          console.log('Local debts found:', localDebts.length, 'Valid debts:', validDebts.length);
+          
+          // Clean up orphaned debts if any found
+          if (validDebts.length !== localDebts.length) {
+            localStorage.setItem('debts', JSON.stringify(validDebts));
+            console.log(`Cleaned up ${localDebts.length - validDebts.length} orphaned debts`);
+          }
+          
+          // Apply filters to valid debts only
+          data = validDebts.filter(debt => {
+            if (searchValue.trim() === '') return true;
+            
+            const searchLower = searchValue.toLowerCase();
+            
+            if (searchType === 'debtor_id') {
+              return debt.debtor_id?.toLowerCase().includes(searchLower);
+            } else if (searchType === 'name') {
+              const firstName = debt.debtor_info?.first_name?.toLowerCase() || '';
+              const lastName = debt.debtor_info?.last_name?.toLowerCase() || '';
+              const fullName = `${firstName} ${lastName}`.trim();
+              return fullName.includes(searchLower) || firstName.includes(searchLower) || lastName.includes(searchLower);
+            } else if (searchType === 'phone') {
+              const cleanPhone = searchValue.replace(/\D/g, '');
+              const debtPhone = debt.debtor_info?.phone?.replace(/\D/g, '') || '';
+              return debtPhone.includes(cleanPhone);
+            } else if (searchType === 'address') {
+              return debt.debtor_info?.address?.toLowerCase().includes(searchLower);
+            } else if (searchType === 'homeowner') {
+              const isHomeowner = searchLower.includes('yes') || searchLower.includes('true') || searchLower.includes('owner');
+              return debt.debtor_info?.homeowner === isHomeowner;
+            }
+            
+            return false;
+          }).slice(0, 200);
         }
+        
+        // Group debts by debtor_id to show unique debtors
+        const debtorMap = new Map();
+        data.forEach(debt => {
+          const debtorId = debt.debtor_id;
+          if (!debtorMap.has(debtorId)) {
+            debtorMap.set(debtorId, {
+              ...debt,
+              total_balance: debt.current_balance || 0,
+              debt_count: 1,
+              debts: [debt]
+            });
+          } else {
+            const existing = debtorMap.get(debtorId);
+            existing.total_balance += (debt.current_balance || 0);
+            existing.debt_count += 1;
+            existing.debts.push(debt);
+          }
+        });
+        
+        const uniqueDebtors = Array.from(debtorMap.values()).slice(0, 50);
+        console.log('Grouped debtors:', uniqueDebtors);
+        setSearchResults(uniqueDebtors);
+        
+        // Update hasData status
+        if (data.length > 0) {
+          setHasData(true);
+        }
+        
       } catch (error) {
         console.error('Search error:', error);
         setSearchResults([]);

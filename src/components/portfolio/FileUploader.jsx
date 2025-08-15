@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { portfolioStorage } from '@/utils/portfolioStorage';
+import { accountStorage } from '@/utils/accountStorage';
 
 // Searchable Select Component
 function SearchableSelect({ value, onValueChange, options, placeholder, className }) {
@@ -117,6 +118,7 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
   const [portfolioSummary, setPortfolioSummary] = useState(null);
   const [additionalFields, setAdditionalFields] = useState([]);
   const [removedFields, setRemovedFields] = useState([]);
+  const [fullCsvData, setFullCsvData] = useState([]);
   const fileInputRef = useRef(null);
   const { toast } = useToast();
 
@@ -176,48 +178,62 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
     
     // Required fields with priority patterns (most specific first)
     const fieldPatterns = {
-      'original_creditor': ['original creditor name', 'original_creditor', 'original creditor', 'creditor name', 'creditor'],
-      'original_account_number': ['original account number', 'original_account_number', 'orig_acct_num', 'original_acct', 'account_number', 'acct_num'],
-      'seller_account_number': ['seller account number', 'seller_account_number', 'seller_acct'],
-      'ssn': ['social security number', 'ssn', 'social_security_number', 'social'],
-      'date_of_birth': ['date of birth', 'date_of_birth', 'dob', 'birth_date', 'birthdate'],
-      'first_name': ['first name', 'first_name', 'fname', 'firstname'],
-      'last_name': ['last name', 'last_name', 'lname', 'lastname', 'surname'],
-      'address': ['address (line 1)', 'address', 'address1', 'street', 'street_address'],
+      'original_creditor': ['original creditor name', 'originalcreditorname', 'original_creditor', 'original creditor', 'creditor name', 'creditorname', 'creditor'],
+      'original_account_number': ['original account number', 'originalaccountnumber', 'original_account_number', 'orig_acct_num', 'original_acct', 'account_number', 'accountnumber', 'acct_num'],
+      'seller_account_number': ['seller account number', 'selleraccountnumber', 'seller_account_number', 'seller_acct'],
+      'ssn': ['social security number', 'socialsecuritynumber', 'ssn', 'social_security_number', 'social'],
+      'date_of_birth': ['date of birth', 'dateofbirth', 'date_of_birth', 'dob', 'birth_date', 'birthdate'],
+      'first_name': ['first name', 'firstname', 'first_name', 'fname'],
+      'last_name': ['last name', 'lastname', 'last_name', 'lname', 'surname'],
+      'address': ['address (line 1)', 'address', 'address1', 'street', 'streetaddress', 'street_address'],
       'city': ['city'],
       'state': ['state', 'st'],
-      'zip': ['zip', 'zipcode', 'zip_code', 'postal_code'],
-      'phone': ['primary phone', 'phone', 'phone_number', 'telephone', 'tel'],
-      'email': ['email address', 'email', 'email_address', 'e_mail'],
-      'account_open_date': ['account open date', 'account_open_date', 'open_date', 'opened'],
-      'total_amount_due': ['total amount due', 'total_amount_due', 'amount_due', 'balance', 'current_balance'],
-      'interest_rate': ['interest rate', 'interest_rate', 'rate'],
-      'principle_balance': ['principle balance', 'principal balance', 'principle_balance', 'principal_balance', 'principal', 'principle'],
-      'last_payment_date': ['last payment date', 'last_payment_date', 'last_pay_date'],
-      'delinquency_date': ['delinquency date', 'delinquency_date', 'delinq_date'],
-      'charge_off_date': ['charge off date', 'charge_off_date', 'chargeoff_date']
+      'zip': ['zip', 'zipcode', 'zip_code', 'postal_code', 'postalcode'],
+      'phone': ['primary phone', 'primaryphone', 'phone', 'phone_number', 'phonenumber', 'telephone', 'tel'],
+      'email': ['email address', 'emailaddress', 'email', 'email_address', 'e_mail'],
+      'account_open_date': ['account open date', 'accountopendate', 'account_open_date', 'open_date', 'opendate', 'opened'],
+      'total_amount_due': ['total amount due', 'totalamountdue', 'total_amount_due', 'amount_due', 'amountdue', 'balance', 'current_balance', 'currentbalance'],
+      'interest_rate': ['interest rate', 'interestrate', 'interest_rate', 'rate'],
+      'principle_balance': ['principle balance', 'principlebalance', 'principal balance', 'principalbalance', 'principle_balance', 'principal_balance', 'principal', 'principle'],
+      'last_payment_date': ['last payment date', 'lastpaymentdate', 'last_payment_date', 'last_pay_date', 'lastpaydate'],
+      'delinquency_date': ['delinquency date', 'delinquencydate', 'delinquency_date', 'delinq_date', 'delinqdate'],
+      'charge_off_date': ['charge off date', 'chargeoffdate', 'charge_off_date', 'chargeoff_date', 'chargeoffdate']
     };
     
     // Calculate match scores for all header-field combinations
     const matches = [];
     headers.forEach(header => {
       const normalizedHeader = header.toLowerCase().trim();
+      const headerNoSpaces = normalizedHeader.replace(/[\s_-]/g, '');
       
       Object.entries(fieldPatterns).forEach(([field, patterns]) => {
         patterns.forEach((pattern, patternIndex) => {
+          const patternNoSpaces = pattern.replace(/[\s_-]/g, '');
           let score = 0;
           
           // Exact match gets highest score
           if (normalizedHeader === pattern) {
-            score = 1000 - patternIndex; // Higher score for earlier patterns
+            score = 1000 - patternIndex;
+          }
+          // Exact match without spaces/underscores/dashes
+          else if (headerNoSpaces === patternNoSpaces) {
+            score = 950 - patternIndex;
           }
           // Contains match
           else if (normalizedHeader.includes(pattern)) {
             score = 500 - patternIndex - (normalizedHeader.length - pattern.length);
           }
+          // Contains match without spaces
+          else if (headerNoSpaces.includes(patternNoSpaces)) {
+            score = 450 - patternIndex - (headerNoSpaces.length - patternNoSpaces.length);
+          }
           // Pattern contains header (for shorter headers)
           else if (pattern.includes(normalizedHeader) && normalizedHeader.length > 2) {
             score = 300 - patternIndex;
+          }
+          // Pattern contains header without spaces
+          else if (patternNoSpaces.includes(headerNoSpaces) && headerNoSpaces.length > 2) {
+            score = 250 - patternIndex;
           }
           
           if (score > 0) {
@@ -298,7 +314,7 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
       };
       
       const headers = parseCSVLine(lines[0]);
-      const rows = lines.slice(1, 6).map(line => {
+      const rows = lines.slice(1).map(line => {
         const values = parseCSVLine(line);
         const row = {};
         headers.forEach((header, index) => {
@@ -316,7 +332,8 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
       const unmappedHeaders = headers.filter(h => !mappedHeaders.includes(h));
       setAdditionalFields(unmappedHeaders.slice(0, 3).map(header => ({ header, field: '' })));
       
-      setPreviewData(rows);
+      setPreviewData(rows.slice(0, 5)); // Only show first 5 for preview
+      setFullCsvData(rows); // Store all data for processing
       setValidationResults({
         total_records: lines.length - 1, // Subtract header row
         valid_records: 0,
@@ -326,9 +343,10 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
       });
       
       const mappedCount = Object.keys(autoMappings).length;
+      const mappedFields = Object.values(autoMappings).filter(v => v);
       toast({ 
         title: "File Uploaded", 
-        description: `${file.name} uploaded successfully. Found ${headers.length} columns, ${lines.length - 1} records. Auto-mapped ${mappedCount} fields.` 
+        description: `${file.name} uploaded successfully. Found ${headers.length} columns, ${lines.length - 1} records. Auto-mapped ${mappedCount} fields: ${mappedFields.slice(0, 3).join(', ')}${mappedFields.length > 3 ? '...' : ''}.` 
       });
     };
     
@@ -400,6 +418,7 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
     
     try {
       const portfolioName = isNewPortfolio ? newPortfolioName : portfolios.find(p => p.id === selectedPortfolio)?.name;
+      let portfolioId = selectedPortfolio;
       
       if (isNewPortfolio) {
         // Save portfolio using environment-aware storage
@@ -426,18 +445,32 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
           top_states: portfolioSummary?.topStates || []
         });
         
+        portfolioId = newPortfolio.id;
+        
         // Notify parent component
         if (onPortfolioCreated) {
           onPortfolioCreated(newPortfolio);
         }
       }
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Process and save actual debt data from CSV
+      const processedDebts = processAccountData(fullCsvData, fieldMappings, removedFields);
+      console.log('Processing', processedDebts.length, 'debt records for portfolio', portfolioId);
+      await accountStorage.saveAccounts(portfolioId, processedDebts);
+      
+      // Update portfolio with actual imported data statistics
+      if (isNewPortfolio) {
+        const actualStats = calculateActualPortfolioStats(processedDebts);
+        // Update the portfolio with real statistics
+        await portfolioStorage.updatePortfolioStats(portfolioId, actualStats);
+      }
       
       toast({ 
         title: "Import Complete", 
-        description: `Successfully ${isNewPortfolio ? 'created' : 'updated'} portfolio "${portfolioName}" and imported ${validationResults.valid_records} accounts.` 
+        description: `Successfully ${isNewPortfolio ? 'created' : 'updated'} portfolio "${portfolioName}" and imported ${processedDebts.length} debt accounts with real data from ${uploadedFile.name}.` 
       });
+      
+      console.log('Import completed. Debt records saved to localStorage.');
       
     } catch (error) {
       console.error('Import failed:', error);
@@ -447,6 +480,86 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
         variant: "destructive"
       });
     }
+  };
+  
+  // Process CSV data into complete debt records for system integration
+  const processAccountData = (csvData, mappings, removedFields) => {
+    return csvData.map((row, index) => {
+      // Generate unique debtor ID and debt ID
+      const timestamp = Date.now();
+      const debtorId = `DEBT_${timestamp}_${String(index + 1).padStart(4, '0')}`;
+      const debtId = `${debtorId}_001`; // Each CSV row creates one debt record
+      
+      const debt = {
+        id: debtId,
+        debtor_id: debtorId,
+        status: 'active_internal', // Default status for new imports
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      // Initialize debtor_info object
+      const debtorInfo = {};
+      
+      // Map CSV columns to debt fields
+      Object.entries(mappings).forEach(([csvColumn, dbField]) => {
+        if (dbField && row[csvColumn] !== undefined) {
+          const value = row[csvColumn]?.toString().trim();
+          
+          // Handle personal information fields (goes into debtor_info)
+          if (['first_name', 'last_name', 'ssn', 'date_of_birth', 'address', 'city', 'state', 'zip', 'phone', 'email'].includes(dbField)) {
+            if (dbField === 'date_of_birth') {
+              debtorInfo[dbField] = value ? new Date(value).toISOString().split('T')[0] : null;
+            } else {
+              debtorInfo[dbField] = value || '';
+            }
+          }
+          // Handle financial fields
+          else if (['total_amount_due', 'current_balance', 'original_balance', 'principle_balance', 'interest_rate'].includes(dbField)) {
+            const numericValue = parseFloat(value.replace(/[^\d.-]/g, '')) || 0;
+            debt[dbField] = numericValue;
+          }
+          // Handle date fields
+          else if (['account_open_date', 'charge_off_date', 'delinquency_date', 'last_payment_date'].includes(dbField)) {
+            debt[dbField] = value ? new Date(value).toISOString().split('T')[0] : null;
+          }
+          // Handle other debt fields
+          else {
+            debt[dbField] = value || '';
+          }
+        }
+      });
+      
+      // Ensure current_balance is set (use total_amount_due as fallback)
+      if (!debt.current_balance && debt.total_amount_due) {
+        debt.current_balance = debt.total_amount_due;
+      }
+      
+      // Ensure original_balance is set (use current_balance as fallback)
+      if (!debt.original_balance && debt.current_balance) {
+        debt.original_balance = debt.current_balance;
+      }
+      
+      // Set default original_balance if still not set
+      if (!debt.original_balance) {
+        debt.original_balance = 1000; // Default value
+      }
+      
+      // Add debtor_info to debt record
+      debt.debtor_info = debtorInfo;
+      
+      // Add additional fields for system compatibility
+      debt.last_payment_amount = 0;
+      debt.total_paid = 0;
+      debt.collection_status = 'new';
+      debt.placement_date = new Date().toISOString().split('T')[0];
+      debt.debt_type = 'credit_card';
+      debt.account_status = 'charged_off';
+      debt.collection_agency = 'Internal';
+      
+      console.log('Created debt record:', debt);
+      return debt;
+    });
   };
   
   const handleMediaFieldToggle = (fieldValue) => {
@@ -461,33 +574,50 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
   };
 
   const generatePortfolioSummary = (validCount, invalidCount) => {
-    // Analyze actual uploaded data
+    // Analyze actual uploaded data from full CSV
     const totalRecords = validationResults.total_records;
     const uniqueAccounts = Math.floor(validCount * 0.98);
     
-    // Calculate actual averages from preview data
+    // Calculate actual statistics from full CSV data
     let avgBalance = 0;
+    let totalValue = 0;
     let stateCount = {};
+    let creditorName = 'Unknown Creditor';
     
-    if (previewData.length > 0) {
-      // Find balance field mapping
+    if (fullCsvData.length > 0) {
+      // Find balance field mapping (prefer total_amount_due, then current_balance)
       const balanceField = Object.keys(fieldMappings).find(key => 
-        fieldMappings[key] === 'current_balance' || fieldMappings[key] === 'original_balance'
+        fieldMappings[key] === 'total_amount_due'
+      ) || Object.keys(fieldMappings).find(key => 
+        fieldMappings[key] === 'current_balance'
+      ) || Object.keys(fieldMappings).find(key => 
+        fieldMappings[key] === 'original_balance'
       );
       
       if (balanceField) {
-        const balances = previewData.map(row => parseFloat(row[balanceField]) || 0).filter(b => b > 0);
-        avgBalance = balances.length > 0 ? balances.reduce((a, b) => a + b, 0) / balances.length : 2500;
-      } else {
-        avgBalance = 2500; // Default if no balance field mapped
+        const balances = fullCsvData.map(row => {
+          const value = row[balanceField]?.toString().replace(/[^\d.-]/g, '') || '0';
+          return parseFloat(value) || 0;
+        }).filter(b => b > 0);
+        
+        if (balances.length > 0) {
+          totalValue = balances.reduce((a, b) => a + b, 0);
+          avgBalance = totalValue / balances.length;
+        }
       }
       
-      // Find state field mapping
+      // Get creditor name from data
+      const creditorField = Object.keys(fieldMappings).find(key => fieldMappings[key] === 'original_creditor');
+      if (creditorField && fullCsvData[0][creditorField]) {
+        creditorName = fullCsvData[0][creditorField];
+      }
+      
+      // Calculate state distribution from full data
       const stateField = Object.keys(fieldMappings).find(key => fieldMappings[key] === 'state');
       if (stateField) {
-        previewData.forEach(row => {
-          const state = row[stateField];
-          if (state) {
+        fullCsvData.forEach(row => {
+          const state = row[stateField]?.toString().trim().toUpperCase();
+          if (state && state.length === 2) {
             stateCount[state] = (stateCount[state] || 0) + 1;
           }
         });
@@ -518,19 +648,22 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
     const avgPrincipleBalance = avgBalance * 0.85;
     
     setPortfolioSummary({
-      creditorName: 'Sample Creditor LLC',
+      creditorName,
       creationDate: new Date().toISOString().split('T')[0],
       alternateUID: `ALT_${Date.now()}`,
       totalRecordsInFile: totalRecords,
       recordsRemoved: invalidCount + exceptions.duplicateAccountNumbers + exceptions.duplicateSSN + exceptions.duplicateAccounts,
       totalUniqueAccounts: uniqueAccounts,
-      calculatedPortfolioValue: Math.floor(uniqueAccounts * avgBalance),
+      calculatedPortfolioValue: Math.floor(totalValue || uniqueAccounts * avgBalance),
       topStates,
       avgTotalDue: Math.floor(avgBalance),
-      avgPrincipleBalance: Math.floor(avgPrincipleBalance),
-      avgDelinquentDays: 180 + Math.floor(Math.random() * 200),
-      avgChargeOffDays: 365 + Math.floor(Math.random() * 200),
-      exceptions
+      avgPrincipleBalance: Math.floor(avgBalance * 0.85),
+      avgDelinquentDays: 180,
+      avgChargeOffDays: 365,
+      exceptions,
+      // Add real data indicators
+      dataSource: 'csv_import',
+      importedFields: Object.values(fieldMappings).filter(v => v && v !== 'skip')
     });
   };
 
@@ -559,6 +692,47 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
     toast({ title: "Download Complete", description: "Exceptions file has been downloaded." });
   };
 
+  // Calculate actual portfolio statistics from imported debt data
+  const calculateActualPortfolioStats = (debts) => {
+    const totalBalance = debts.reduce((sum, debt) => sum + (debt.current_balance || 0), 0);
+    const avgBalance = debts.length > 0 ? totalBalance / debts.length : 0;
+    
+    // Calculate state distribution
+    const stateCount = {};
+    debts.forEach(debt => {
+      const state = debt.debtor_info?.state;
+      if (state) {
+        stateCount[state] = (stateCount[state] || 0) + 1;
+      }
+    });
+    
+    const topStates = Object.entries(stateCount)
+      .map(([state, count]) => ({
+        state,
+        accounts: count,
+        value: Math.floor(count * avgBalance),
+        percentage: ((count / debts.length) * 100).toFixed(1)
+      }))
+      .sort((a, b) => b.accounts - a.accounts)
+      .slice(0, 5);
+    
+    return {
+      account_count: debts.length,
+      original_face_value: totalBalance,
+      kpis: {
+        total_collected: 0,
+        collection_rate: 0,
+        average_balance: Math.floor(avgBalance),
+        resolved_percentage: 0,
+        bankruptcy_percentage: 0,
+        deceased_percentage: 0,
+        cease_desist_percentage: 0,
+        placed_percentage: 100 // All accounts are now "placed" in the system
+      },
+      top_states: topStates
+    };
+  };
+  
   const resetUploader = () => {
     setStep(1); 
     setUploadedFile(null); 
@@ -572,6 +746,7 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
     setPortfolioSummary(null);
     setAdditionalFields([]);
     setRemovedFields([]);
+    setFullCsvData([]);
   };
   const handleClose = () => { resetUploader(); onClose(); };
 

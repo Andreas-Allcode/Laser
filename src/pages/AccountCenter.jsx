@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Users } from 'lucide-react';
+import { Users, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
+import { portfolioStorage } from '@/utils/portfolioStorage';
 
 import AccountSearch from '../components/account-center/AccountSearch';
 import AccountProfile from '../components/account-center/AccountProfile';
@@ -14,6 +16,7 @@ import { ActivityLog } from '@/api/entities';
 export default function AccountCenter() {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [cleaningUp, setCleaningUp] = useState(false);
   const { toast } = useToast();
 
   const handleAccountSelect = (account) => {
@@ -70,16 +73,48 @@ export default function AccountCenter() {
     }
   };
 
+  const handleCleanupOrphanedDebts = async () => {
+    setCleaningUp(true);
+    try {
+      const deletedCount = await portfolioStorage.cleanupOrphanedDebts();
+      toast({
+        title: "Cleanup Complete",
+        description: `Removed ${deletedCount} orphaned debt records.`,
+        variant: deletedCount > 0 ? "default" : "secondary"
+      });
+    } catch (error) {
+      console.error('Error cleaning up orphaned debts:', error);
+      toast({
+        title: "Cleanup Failed",
+        description: "Failed to clean up orphaned debts.",
+        variant: "destructive"
+      });
+    } finally {
+      setCleaningUp(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Users className="w-8 h-8 laser-text-gradient"/>
-        <div>
-          <h1 className="text-4xl font-bold laser-text-gradient">Account Center</h1>
-          <p className="text-gray-400 mt-1">
-            Search for and manage individual debtor accounts
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Users className="w-8 h-8 laser-text-gradient"/>
+          <div>
+            <h1 className="text-4xl font-bold laser-text-gradient">Account Center</h1>
+            <p className="text-gray-400 mt-1">
+              Search for and manage individual debtor accounts
+            </p>
+          </div>
         </div>
+        <Button 
+          variant="outline" 
+          onClick={handleCleanupOrphanedDebts}
+          disabled={cleaningUp}
+          className="text-red-600 hover:text-red-700"
+        >
+          <Trash2 className="w-4 h-4 mr-2" />
+          {cleaningUp ? 'Cleaning...' : 'Clean Orphaned Debts'}
+        </Button>
       </div>
 
       {!selectedAccount ? (

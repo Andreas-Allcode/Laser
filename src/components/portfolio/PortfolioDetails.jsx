@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { accountStorage } from '@/utils/accountStorage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,41 +34,47 @@ export default function PortfolioDetails({ portfolio, onBack, onUploadFile }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showMediaManager, setShowMediaManager] = useState(false);
+  const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const itemsPerPage = 10;
 
-  // Generate portfolio-specific mock debts
-  const generatePortfolioDebts = (portfolioId, count = 20) => {
-    const firstNames = ['John', 'Maria', 'Robert', 'Sarah', 'Michael', 'Jennifer', 'David', 'Lisa', 'James', 'Patricia', 'Christopher', 'Linda', 'Matthew', 'Elizabeth', 'Anthony'];
-    const lastNames = ['Smith', 'Garcia', 'Johnson', 'Williams', 'Davis', 'Brown', 'Jones', 'Miller', 'Wilson', 'Moore', 'Taylor', 'Anderson', 'Thomas', 'Jackson', 'White'];
-    const states = ['TX', 'CA', 'FL', 'NY', 'IL', 'PA', 'OH', 'GA', 'NC', 'MI'];
-    const statuses = ['active_internal', 'placed_external', 'resolved_paid', 'uncollectible_bankruptcy', 'payment_plan_active'];
+  // Load real account data
+  useEffect(() => {
+    const loadAccounts = async () => {
+      try {
+        setLoading(true);
+        const accountData = await accountStorage.loadAccountsByPortfolio(portfolio.id);
+        setAccounts(accountData);
+      } catch (error) {
+        console.error('Error loading accounts:', error);
+        // Fallback to mock data if no real data exists
+        setAccounts(generateFallbackData());
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    return Array.from({ length: count }, (_, i) => {
-      const seed = portfolioId.charCodeAt(portfolioId.length - 1) + i;
-      const originalBalance = 500 + (seed * 47) % 5000;
-      const currentBalance = Math.max(0, originalBalance - (seed * 23) % originalBalance);
-      const hasPayment = seed % 3 === 0;
-      
-      return {
-        debtor_id: `${portfolioId}_${String(i + 1).padStart(3, '0')}`,
-        debtor_info: {
-          first_name: firstNames[seed % firstNames.length],
-          last_name: lastNames[(seed + 7) % lastNames.length],
-          state: states[seed % states.length],
-          homeowner: seed % 2 === 0, // 50% homeowners
-          score_recovery_bankcard: 500 + (seed * 17) % 300,
-          score_recovery_retail: 520 + (seed * 19) % 280
-        },
-        current_balance: currentBalance,
-        original_balance: originalBalance,
-        last_payment_amount: hasPayment ? (seed * 13) % 500 : 0,
-        last_payment_date: hasPayment ? new Date(Date.now() - (seed * 86400000)).toISOString().split('T')[0] : null,
-        status: statuses[seed % statuses.length]
-      };
-    });
-  };
+    loadAccounts();
+  }, [portfolio.id]);
   
-  const mockDebts = generatePortfolioDebts(portfolio.id, Math.min(portfolio.account_count || 20, 50));
+  // Generate fallback data for portfolios without imported accounts
+  const generateFallbackData = () => {
+    const firstNames = ['John', 'Maria', 'Robert', 'Sarah', 'Michael'];
+    const lastNames = ['Smith', 'Garcia', 'Johnson', 'Williams', 'Davis'];
+    const states = ['TX', 'CA', 'FL', 'NY', 'IL'];
+    
+    return Array.from({ length: Math.min(portfolio.account_count || 5, 10) }, (_, i) => ({
+      debtor_id: `${portfolio.id}_${String(i + 1).padStart(3, '0')}`,
+      debtor_info: {
+        first_name: firstNames[i % firstNames.length],
+        last_name: lastNames[i % lastNames.length],
+        state: states[i % states.length]
+      },
+      total_amount_due: 1000 + (i * 500),
+      current_balance: 800 + (i * 400),
+      status: 'active_internal'
+    }));
+  };
 
   const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString() : 'N/A';
@@ -85,12 +92,12 @@ export default function PortfolioDetails({ portfolio, onBack, onUploadFile }) {
     'action_cease_desist': Ban
   }[status]);
 
-  const filteredDebts = mockDebts.filter(debt =>
-    `${debt.debtor_info.first_name} ${debt.debtor_info.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    debt.debtor_id.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredAccounts = accounts.filter(account =>
+    `${account.debtor_info?.first_name || ''} ${account.debtor_info?.last_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    account.debtor_id.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  const paginatedDebts = filteredDebts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPages = Math.ceil(filteredDebts.length / itemsPerPage);
+  const paginatedAccounts = filteredAccounts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(filteredAccounts.length / itemsPerPage);
 
   // Show Media Manager if selected
   if (showMediaManager) {
@@ -153,17 +160,54 @@ export default function PortfolioDetails({ portfolio, onBack, onUploadFile }) {
             <Table>
               <TableHeader><TableRow><TableHead>Account ID</TableHead><TableHead>Debtor Name</TableHead><TableHead>State</TableHead><TableHead>Current Balance</TableHead><TableHead>Last Payment</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
               <TableBody>
-                {paginatedDebts.map((debt) => {
-                  const StatusIcon = getStatusIcon(debt.status);
-                  return (
-                    <TableRow key={debt.debtor_id}><TableCell className="font-mono">{debt.debtor_id}</TableCell><TableCell>{`${debt.debtor_info.first_name} ${debt.debtor_info.last_name}`}</TableCell><TableCell>{debt.debtor_info.state}</TableCell><TableCell className="font-semibold text-primary">{formatCurrency(debt.current_balance)}</TableCell><TableCell>{debt.last_payment_amount > 0 ? `${formatCurrency(debt.last_payment_amount)} on ${formatDate(debt.last_payment_date)}` : 'N/A'}</TableCell><TableCell><Badge variant="outline" className={`font-medium ${getStatusColor(debt.status)}`}>{StatusIcon && <StatusIcon className="w-3.5 h-3.5 mr-1.5" />}{debt.status.replace(/_/g, ' ')}</Badge></TableCell></TableRow>
-                  );
-                })}
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      Loading accounts...
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedAccounts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      No accounts found. Upload a CSV file to import account data.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedAccounts.map((account) => {
+                    const StatusIcon = getStatusIcon(account.status);
+                    const balance = account.current_balance || account.total_amount_due || 0;
+                    return (
+                      <TableRow key={account.debtor_id}>
+                        <TableCell className="font-mono">{account.debtor_id}</TableCell>
+                        <TableCell>
+                          {account.debtor_info?.first_name && account.debtor_info?.last_name 
+                            ? `${account.debtor_info.first_name} ${account.debtor_info.last_name}`
+                            : 'N/A'
+                          }
+                        </TableCell>
+                        <TableCell>{account.debtor_info?.state || 'N/A'}</TableCell>
+                        <TableCell className="font-semibold text-primary">{formatCurrency(account.current_balance || 0)}</TableCell>
+                        <TableCell>
+                          {account.last_payment_date 
+                            ? `Last payment: ${formatDate(account.last_payment_date)}` 
+                            : 'No payments'
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`font-medium ${getStatusColor(account.status)}`}>
+                            {StatusIcon && <StatusIcon className="w-3.5 h-3.5 mr-1.5" />}
+                            {account.status?.replace(/_/g, ' ') || 'active'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </div>
           <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-muted-foreground">Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredDebts.length)} of {filteredDebts.length} accounts</div>
+            <div className="text-sm text-muted-foreground">Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAccounts.length)} of {filteredAccounts.length} accounts</div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1}>Previous</Button>
               <span className="text-sm font-medium px-2">Page {currentPage} of {totalPages}</span>

@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Database, ShoppingCart } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { portfolioStorage } from '@/utils/portfolioStorage';
 import PortfolioSummary from '../components/portfolio/PortfolioSummary';
 import PortfolioDetails from '../components/portfolio/PortfolioDetails';
 import FileUploader from '../components/portfolio/FileUploader';
 import SalePortfolios from '../components/portfolio/SalePortfolios';
 
-const mockPurchasedPortfolios = [
-    { id: 'PORT_1', name: 'Q1 2024 Healthcare', client_name: 'MedDebt Solutions LLC', purchase_date: '2024-01-15', purchase_price: 1200000, original_face_value: 8500000, account_count: 15420, status: 'active_collections', portfolio_type: 'purchased', kpis: { total_collected: 540000, collection_rate: 6.35, average_balance: 551, average_charge_off_days: 180, resolved_percentage: 12, bankruptcy_percentage: 1.5, deceased_percentage: 0.8, cease_desist_percentage: 0.5, placed_percentage: 78 }, top_states: [{ state: 'CA', percentage: 18 }, { state: 'TX', percentage: 15 }, { state: 'FL', percentage: 11 }] },
-    { id: 'PORT_2', name: 'Legacy Credit Cards', client_name: 'First National Bank', purchase_date: '2023-11-20', purchase_price: 2500000, original_face_value: 12800000, account_count: 28750, status: 'active_collections', portfolio_type: 'purchased', kpis: { total_collected: 980000, collection_rate: 7.65, average_balance: 445, average_charge_off_days: 320, resolved_percentage: 18, bankruptcy_percentage: 2.1, deceased_percentage: 1.1, cease_desist_percentage: 0.9, placed_percentage: 85 }, top_states: [{ state: 'NY', percentage: 22 }, { state: 'CA', percentage: 16 }, { state: 'IL', percentage: 9 }] },
-    { id: 'PORT_3', name: 'Auto Loans 2024', client_name: 'Premier Auto Finance', purchase_date: '2024-03-01', purchase_price: 4500000, original_face_value: 18200000, account_count: 8940, status: 'pending_scrub', portfolio_type: 'purchased', kpis: { total_collected: 0, collection_rate: 0, average_balance: 2035, average_charge_off_days: 95, resolved_percentage: 0, bankruptcy_percentage: 0, deceased_percentage: 0, cease_desist_percentage: 0, placed_percentage: 0 }, top_states: [{ state: 'TX', percentage: 25 }, { state: 'GA', percentage: 12 }, { state: 'OH', percentage: 8 }] },
-  ];
+
 
 export default function PortfolioManagement() {
   const [selectedPortfolio, setSelectedPortfolio] = useState(null);
@@ -19,6 +18,14 @@ export default function PortfolioManagement() {
   const [activeTab, setActiveTab] = useState('purchased');
   const [purchasedPortfolios, setPurchasedPortfolios] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [portfolioToDelete, setPortfolioToDelete] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [mockPortfolios, setMockPortfolios] = useState([
+    { id: 'PORT_1', name: 'Q1 2024 Healthcare', client_name: 'MedDebt Solutions LLC', purchase_date: '2024-01-15', purchase_price: 1200000, original_face_value: 8500000, account_count: 15420, status: 'active_collections', portfolio_type: 'purchased', kpis: { total_collected: 540000, collection_rate: 6.35, average_balance: 551, average_charge_off_days: 180, resolved_percentage: 12, bankruptcy_percentage: 1.5, deceased_percentage: 0.8, cease_desist_percentage: 0.5, placed_percentage: 78 }, top_states: [{ state: 'CA', percentage: 18 }, { state: 'TX', percentage: 15 }, { state: 'FL', percentage: 11 }] },
+    { id: 'PORT_2', name: 'Legacy Credit Cards', client_name: 'First National Bank', purchase_date: '2023-11-20', purchase_price: 2500000, original_face_value: 12800000, account_count: 28750, status: 'active_collections', portfolio_type: 'purchased', kpis: { total_collected: 980000, collection_rate: 7.65, average_balance: 445, average_charge_off_days: 320, resolved_percentage: 18, bankruptcy_percentage: 2.1, deceased_percentage: 1.1, cease_desist_percentage: 0.9, placed_percentage: 85 }, top_states: [{ state: 'NY', percentage: 22 }, { state: 'CA', percentage: 16 }, { state: 'IL', percentage: 9 }] },
+    { id: 'PORT_3', name: 'Auto Loans 2024', client_name: 'Premier Auto Finance', purchase_date: '2024-03-01', purchase_price: 4500000, original_face_value: 18200000, account_count: 8940, status: 'pending_scrub', portfolio_type: 'purchased', kpis: { total_collected: 0, collection_rate: 0, average_balance: 2035, average_charge_off_days: 95, resolved_percentage: 0, bankruptcy_percentage: 0, deceased_percentage: 0, cease_desist_percentage: 0, placed_percentage: 0 }, top_states: [{ state: 'TX', percentage: 25 }, { state: 'GA', percentage: 12 }, { state: 'OH', percentage: 8 }] },
+  ]);
   
   const mockSalePortfolios = [
 
@@ -43,14 +50,21 @@ export default function PortfolioManagement() {
     try {
       const storedPortfolios = await portfolioStorage.loadPortfolios();
       console.log('Loaded portfolios:', storedPortfolios);
-      setPurchasedPortfolios([...mockPurchasedPortfolios, ...storedPortfolios]);
+      setPurchasedPortfolios([...mockPortfolios, ...storedPortfolios]);
     } catch (error) {
       console.error('Error loading portfolios:', error);
-      setPurchasedPortfolios(mockPurchasedPortfolios);
+      setPurchasedPortfolios(mockPortfolios);
     } finally {
       setLoading(false);
     }
   };
+
+  // Update purchased portfolios when mock portfolios change
+  useEffect(() => {
+    if (!loading) {
+      loadPortfolios();
+    }
+  }, [mockPortfolios]);
 
   useEffect(() => {
     loadPortfolios();
@@ -61,14 +75,40 @@ export default function PortfolioManagement() {
     loadPortfolios(); // Reload from storage
   };
 
-  const handleDeletePortfolio = async (portfolioId) => {
+  const handleDeletePortfolio = (portfolioId) => {
+    const portfolio = purchasedPortfolios.find(p => p.id === portfolioId);
+    setPortfolioToDelete(portfolio);
+    setShowDeleteDialog(true);
+    setConfirmDelete(false);
+  };
+
+  const confirmDeletePortfolio = async () => {
+    if (!confirmDelete || !portfolioToDelete) return;
+    
     try {
-      await portfolioStorage.deletePortfolio(portfolioId);
-      loadPortfolios(); // Reload after deletion
+      console.log('Attempting to delete portfolio:', portfolioToDelete.id);
+      
+      // Handle mock portfolio deletion by removing from state
+      const mockIds = ['PORT_1', 'PORT_2', 'PORT_3'];
+      if (mockIds.includes(portfolioToDelete.id)) {
+        console.log('Deleting mock portfolio:', portfolioToDelete.id);
+        // Remove from mock portfolios state
+        setMockPortfolios(prev => prev.filter(p => p.id !== portfolioToDelete.id));
+      } else {
+        await portfolioStorage.deletePortfolio(portfolioToDelete.id);
+        console.log('Portfolio deleted successfully');
+        loadPortfolios(); // Reload after deletion
+      }
+      
+      setShowDeleteDialog(false);
+      setPortfolioToDelete(null);
+      setConfirmDelete(false);
     } catch (error) {
       console.error('Error deleting portfolio:', error);
     }
   };
+
+
 
   if (selectedPortfolio) {
     return <PortfolioDetails portfolio={selectedPortfolio} onBack={handleBackToSummary} onUploadFile={handleUploadFile} />;
@@ -114,6 +154,41 @@ export default function PortfolioManagement() {
         portfolios={purchasedPortfolios}
         onPortfolioCreated={handlePortfolioCreated}
       />
+      
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Portfolio</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the portfolio "{portfolioToDelete?.name}"? This action cannot be undone and will also delete all associated debt records.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="confirm-delete" 
+                checked={confirmDelete} 
+                onCheckedChange={setConfirmDelete} 
+              />
+              <label htmlFor="confirm-delete" className="text-sm">
+                I understand this action cannot be undone
+              </label>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={confirmDeletePortfolio}
+                disabled={!confirmDelete}
+              >
+                Delete Portfolio
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
