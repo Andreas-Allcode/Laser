@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { portfolioStorage } from '@/utils/portfolioStorage';
+import { supabase } from '@/lib/supabase';
 
 import SearchFilters from '../components/command-center/SearchFilters';
 import PreviewResults from '../components/command-center/PreviewResults';
@@ -107,14 +108,11 @@ export default function CommandCenter() {
     return path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), obj);
   };
   
-  const generateMockSearchResults = (currentFilters = [], page = 1, pageSize = 50) => {
-    // Load real debts from localStorage instead of mock data
-    const realDebts = JSON.parse(localStorage.getItem('debts') || '[]');
-    let filteredData = realDebts.length > 0 ? [...realDebts] : [...ALL_MOCK_DEBTS];
+  const generateSearchResults = (currentFilters = [], page = 1, pageSize = 50, realDebts = []) => {
+    let filteredData = [...realDebts];
 
     if (currentFilters.length > 0) {
-        const dataSource = realDebts.length > 0 ? realDebts : ALL_MOCK_DEBTS;
-        filteredData = dataSource.filter(debt => {
+        filteredData = filteredData.filter(debt => {
             return currentFilters.every(filter => {
                 const { field, operator, value } = filter;
                 if (!field || !operator || value === undefined || value === '') return true;
@@ -258,23 +256,50 @@ export default function CommandCenter() {
     };
   };
 
+  const [realDebts, setRealDebts] = useState([]);
+  
   useEffect(() => {
-    // Load initial data on page load (real debts if available, otherwise mock)
-    const { results, total, fullResults } = generateMockSearchResults([], 1);
+    // Load real debts from storage
+    const loadRealDebts = async () => {
+      const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      
+      if (isProduction) {
+        // Load from Supabase in production
+        try {
+          const { data, error } = await supabase.from('debts').select('*');
+          if (error) throw error;
+          setRealDebts(data || []);
+        } catch (error) {
+          console.error('Error loading debts from Supabase:', error);
+          setRealDebts([]);
+        }
+      } else {
+        // Load from localStorage in development
+        const localDebts = JSON.parse(localStorage.getItem('debts') || '[]');
+        setRealDebts(localDebts);
+      }
+    };
+    
+    loadRealDebts();
+  }, []);
+  
+  useEffect(() => {
+    // Update search results when real debts are loaded
+    const { results, total, fullResults } = generateSearchResults([], 1, 50, realDebts);
     setSearchResults(results);
     setTotalCount(total);
     
     // Generate initial summary data
     const summary = generateMockSummaryData(fullResults);
     setSummaryData(summary);
-  }, []);
+  }, [realDebts]);
 
   const handlePreview = async () => {
     setIsPreviewLoading(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const { fullResults } = generateMockSearchResults(filters, 1, ALL_MOCK_DEBTS.length);
+      const { fullResults } = generateSearchResults(filters, 1, realDebts.length, realDebts);
       const preview = generateMockPreviewData(fullResults);
       setPreviewData(preview);
       
@@ -299,7 +324,7 @@ export default function CommandCenter() {
       // Use a shorter delay for pagination for better UX
       await new Promise(resolve => setTimeout(resolve, page === currentPage ? 1000 : 300));
       
-      const { results, total, fullResults } = generateMockSearchResults(filters, page);
+      const { results, total, fullResults } = generateSearchResults(filters, page, 50, realDebts);
       setSearchResults(results);
       setTotalCount(total);
       
@@ -451,7 +476,7 @@ export default function CommandCenter() {
       const deletedCount = await portfolioStorage.cleanupOrphanedDebts();
       
       // Refresh the search results to show updated data
-      const { results, total, fullResults } = generateMockSearchResults(filters, 1);
+      const { results, total, fullResults } = generateSearchResults(filters, 1, 50, realDebts);
       setSearchResults(results);
       setTotalCount(total);
       setCurrentPage(1);
