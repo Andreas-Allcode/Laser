@@ -109,18 +109,33 @@ export const portfolioStorage = {
   async cleanupOrphanedDebts() {
     if (isProduction) {
       // Clean up orphaned debts in Supabase
-      const { data: portfolios } = await supabase.from('portfolios').select('id');
+      const { data: portfolios, error: portfolioError } = await supabase.from('portfolios').select('id');
+      if (portfolioError) throw portfolioError;
+      
       const validIds = portfolios?.map(p => p.id) || [];
       
       if (validIds.length > 0) {
-        const { data: deletedDebts, error } = await supabase
+        // Get all debts first, then filter client-side due to Supabase limitations
+        const { data: allDebts, error: debtsError } = await supabase
           .from('debts')
-          .delete()
-          .not('portfolio_id', 'in', `(${validIds.join(',')})`)
-          .select('id');
+          .select('id, portfolio_id');
         
-        if (error) throw error;
-        return deletedDebts?.length || 0;
+        if (debtsError) throw debtsError;
+        
+        // Find orphaned debts
+        const orphanedDebts = allDebts?.filter(debt => !validIds.includes(debt.portfolio_id)) || [];
+        
+        if (orphanedDebts.length > 0) {
+          const orphanedIds = orphanedDebts.map(debt => debt.id);
+          const { error: deleteError } = await supabase
+            .from('debts')
+            .delete()
+            .in('id', orphanedIds);
+          
+          if (deleteError) throw deleteError;
+        }
+        
+        return orphanedDebts.length;
       }
       return 0;
     } else {
