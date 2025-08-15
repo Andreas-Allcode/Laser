@@ -1210,7 +1210,7 @@ export default function FileUploader({ isOpen, onClose, portfolios, onPortfolioC
           <div className="text-center py-8">
             <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
             <h3 className="text-2xl font-bold mb-2">Import Successful!</h3>
-            <p className="text-muted-foreground mb-6">{validationResults?.valid_records} accounts have been imported.</p>
+            <p className="text-muted-foreground mb-6">{fullCsvData.length} accounts have been imported.</p>
             <div className="flex justify-center gap-4"><Button variant="outline" onClick={handleClose}>Close</Button><Button onClick={resetUploader}>Import Another File</Button></div>
           </div>
         )}
