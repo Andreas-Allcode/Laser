@@ -5,43 +5,72 @@ const isProduction = window.location.hostname !== 'localhost' && window.location
 export const portfolioStorage = {
   async savePortfolio(portfolioData) {
     if (isProduction) {
-      // Save to Supabase in production
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('company_name', 'Imported Portfolio Client')
-        .single();
-      
-      let clientId;
-      if (clientError || !clientData) {
-        const { data: newClient, error: newClientError } = await supabase
+      try {
+        // Save to Supabase in production
+        const { data: clientData, error: clientError } = await supabase
           .from('clients')
-          .insert({
-            company_name: 'Imported Portfolio Client',
-            client_type: 'debt_seller',
-            email: 'imported@example.com',
-            status: 'active'
-          })
+          .select('id')
+          .eq('company_name', 'Imported Portfolio Client')
+          .maybeSingle();
+        
+        let clientId;
+        if (clientError) {
+          console.error('Client lookup error:', clientError);
+          throw clientError;
+        }
+        
+        if (!clientData) {
+          const { data: newClient, error: newClientError } = await supabase
+            .from('clients')
+            .insert({
+              company_name: 'Imported Portfolio Client',
+              client_type: 'debt_seller',
+              email: 'imported@example.com',
+              status: 'active'
+            })
+            .select()
+            .single();
+          
+          if (newClientError) {
+            console.error('Client creation error:', newClientError);
+            throw newClientError;
+          }
+          clientId = newClient.id;
+        } else {
+          clientId = clientData.id;
+        }
+        
+        // Clean portfolio data for Supabase
+        const cleanPortfolioData = {
+          name: portfolioData.name,
+          description: portfolioData.description || '',
+          purchase_date: portfolioData.purchase_date,
+          purchase_price: portfolioData.purchase_price || 0,
+          original_face_value: portfolioData.original_face_value || 0,
+          account_count: portfolioData.account_count || 0,
+          status: portfolioData.status || 'active_collections',
+          portfolio_type: 'purchased',
+          debt_seller_client_id: clientId
+        };
+        
+        console.log('Inserting portfolio data:', cleanPortfolioData);
+        
+        const { data: newPortfolio, error: portfolioError } = await supabase
+          .from('portfolios')
+          .insert(cleanPortfolioData)
           .select()
           .single();
         
-        if (newClientError) throw newClientError;
-        clientId = newClient.id;
-      } else {
-        clientId = clientData.id;
+        if (portfolioError) {
+          console.error('Portfolio creation error:', portfolioError);
+          throw portfolioError;
+        }
+        
+        return newPortfolio;
+      } catch (error) {
+        console.error('Portfolio save error:', error);
+        throw error;
       }
-      
-      const { data: newPortfolio, error: portfolioError } = await supabase
-        .from('portfolios')
-        .insert({
-          ...portfolioData,
-          debt_seller_client_id: clientId
-        })
-        .select()
-        .single();
-      
-      if (portfolioError) throw portfolioError;
-      return newPortfolio;
     } else {
       // Save to localStorage in development
       const portfolios = JSON.parse(localStorage.getItem('portfolios') || '[]');
